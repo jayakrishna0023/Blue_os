@@ -48,6 +48,10 @@ export const mainAPI = {
     const response = await api.get(`/trips/${tripId}/catch`);
     return response.data;
   },
+  getLogByQR: async (qrCode) => {
+    const response = await api.get(`/catch/qr/${qrCode}`);
+    return response.data;
+  },
 
   // Catch Logging
   saveSpecies: async (speciesData) => {
@@ -65,7 +69,8 @@ export const mainAPI = {
         qrCode: speciesData.qr,
         images: speciesData.images,
         catchSessionId: speciesData.catchSessionId,
-        userId: speciesData.userId
+        userId: speciesData.userId,
+        timestamp: speciesData.timestamp
     };
     const response = await api.post('/catch', payload);
     return response.data;
@@ -160,6 +165,10 @@ export const adminAPI = {
   },
   approveRegistration: async (data) => {
     const response = await api.post('/registrations/approve', data);
+    return response.data;
+  },
+  getUsers: async () => {
+    const response = await api.get('/users');
     return response.data;
   }
 };

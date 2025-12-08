@@ -99,7 +99,8 @@ const SpeciesEntry = ({ trip }) => {
             locationName: location.name,
             userId: user?.id,
             catchSessionId: catchSessionId,
-            tripId: trip.id
+            tripId: trip.id,
+            timestamp: entry.timestamp
           })
         )
       );

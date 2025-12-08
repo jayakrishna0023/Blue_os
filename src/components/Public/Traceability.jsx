@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { publicAPI } from '../../services/api';
 import QRScannerModal from '../Shared/QRScannerModal';
-import { Search, QrCode, MapPin, Ship, Thermometer, CheckCircle, ArrowLeft, Fish } from 'lucide-react';
+import { Search, QrCode, MapPin, Ship, Thermometer, CheckCircle, ArrowLeft, Fish, Waves } from 'lucide-react';
 
 const Traceability = () => {
   const navigate = useNavigate();
@@ -46,36 +46,47 @@ const Traceability = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-950 font-sans selection:bg-blue-500/30 selection:text-blue-200 relative overflow-x-hidden">
+      
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
       {/* Header */}
-      <header className="bg-white border-b border-slate-200">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-ocean-600 p-2 rounded-lg">
+            <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-2 rounded-lg shadow-lg shadow-blue-500/20">
               <Fish className="w-6 h-6 text-white" />
             </div>
-            <span className="font-bold text-xl text-slate-900">BlueTrace</span>
+            <span className="font-bold text-xl text-white tracking-tight">BlueTrace</span>
           </div>
           <button 
             onClick={() => navigate('/')}
-            className="text-sm font-medium text-slate-500 hover:text-ocean-600"
+            className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
           >
             Login
           </button>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto p-4 sm:p-8">
+      <main className="max-w-3xl mx-auto p-4 sm:p-8 pt-24 relative z-10">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Trace Your Catch</h1>
-          <p className="text-slate-500 max-w-md mx-auto">
+          <div className="inline-flex items-center justify-center p-3 bg-blue-600/20 rounded-2xl mb-4 border border-blue-500/30 backdrop-blur-md">
+             <Waves className="w-8 h-8 text-blue-400" />
+          </div>
+          <h1 className="text-4xl font-bold text-white tracking-tight mb-4">Trace Your Catch</h1>
+          <p className="text-slate-400 max-w-md mx-auto text-lg">
             Enter the unique ID found on your fish tag or scan the QR code to see its journey from ocean to plate.
           </p>
         </div>
 
         {/* Search Box */}
-        <div className="glass-card p-2 flex items-center gap-2 mb-12 max-w-xl mx-auto shadow-xl shadow-ocean-100">
-          <div className="pl-4 text-slate-400">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-2 flex items-center gap-2 mb-12 max-w-xl mx-auto rounded-2xl shadow-2xl shadow-blue-900/10">
+          <div className="pl-4 text-slate-500">
             <Search className="w-5 h-5" />
           </div>
           <input
@@ -83,18 +94,18 @@ const Traceability = () => {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Enter Fish ID (e.g., FISH_...)"
-            className="flex-1 bg-transparent border-none outline-none text-slate-800 placeholder-slate-400 h-12"
+            className="flex-1 bg-transparent border-none outline-none text-white placeholder-slate-500 h-12 focus:ring-0"
           />
           <button
             onClick={() => setIsScannerOpen(true)}
-            className="p-3 text-slate-400 hover:text-ocean-600 hover:bg-ocean-50 rounded-xl transition-colors"
+            className="p-3 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-colors"
           >
             <QrCode className="w-6 h-6" />
           </button>
           <button
             onClick={handleSearch}
             disabled={loading || !code}
-            className="bg-ocean-600 hover:bg-ocean-700 text-white px-6 py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Tracing...' : 'Trace'}
           </button>
@@ -102,7 +113,8 @@ const Traceability = () => {
 
         {/* Results */}
         {error && (
-          <div className="text-center text-red-500 bg-red-50 p-4 rounded-xl mb-8">
+          <div className="text-center text-red-400 bg-red-500/10 border border-red-500/20 p-4 rounded-xl mb-8 flex items-center justify-center gap-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             {error}
           </div>
         )}
@@ -110,44 +122,47 @@ const Traceability = () => {
         {traceData && (
           <div className="animate-slide-up space-y-8">
             {/* Header Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
               <div>
                 <p className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Species</p>
-                <h2 className="text-3xl font-bold text-ocean-900">{traceData.species}</h2>
-                <p className="font-mono text-slate-400 text-sm mt-1">{traceData.id}</p>
+                <h2 className="text-3xl font-bold text-white">{traceData.species_name || 'Unknown Species'}</h2>
+                <p className="font-mono text-blue-400 text-sm mt-1">{traceData.qr_code}</p>
               </div>
-              <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full flex items-center gap-2 font-medium">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-full flex items-center gap-2 font-medium">
                 <CheckCircle className="w-5 h-5" />
-                {traceData.status}
+                Verified Catch
               </div>
             </div>
 
             {/* Timeline */}
-            <div className="relative pl-8 border-l-2 border-slate-200 space-y-12">
+            <div className="relative pl-8 border-l-2 border-slate-800 space-y-12">
               {/* Catch Node */}
               <div className="relative">
-                <div className="absolute -left-[41px] bg-ocean-100 p-2 rounded-full border-4 border-white shadow-sm">
-                  <Ship className="w-6 h-6 text-ocean-600" />
+                <div className="absolute -left-[41px] bg-slate-900 p-2 rounded-full border-4 border-slate-800 shadow-sm z-10">
+                  <Ship className="w-6 h-6 text-blue-500" />
                 </div>
-                <div className="glass-card p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">Catch Details</h3>
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-2xl hover:border-blue-500/30 transition-colors">
+                  <h3 className="text-lg font-bold text-white mb-4">Catch Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-slate-400 mt-0.5" />
+                      <MapPin className="w-5 h-5 text-slate-500 mt-0.5" />
                       <div>
                         <p className="text-sm text-slate-500">Location</p>
-                        <p className="font-medium text-slate-800">{traceData.catch.location}</p>
+                        <p className="font-medium text-slate-300">{traceData.location_name || 'At Sea'}</p>
+                        <p className="text-xs text-slate-500 font-mono mt-1">
+                            {traceData.latitude && traceData.longitude ? `${traceData.latitude}, ${traceData.longitude}` : ''}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <Ship className="w-5 h-5 text-slate-400 mt-0.5" />
+                      <Ship className="w-5 h-5 text-slate-500 mt-0.5" />
                       <div>
                         <p className="text-sm text-slate-500">Vessel</p>
-                        <p className="font-medium text-slate-800">{traceData.catch.vessel}</p>
+                        <p className="font-medium text-slate-300">{traceData.vessel_name || 'Unknown Vessel'}</p>
                       </div>
                     </div>
-                    <div className="col-span-full text-sm text-slate-400 mt-2 pt-2 border-t border-slate-100">
-                      Caught on {new Date(traceData.catch.date).toLocaleString()} by {traceData.catch.captain} using {traceData.catch.method}
+                    <div className="col-span-full text-sm text-slate-500 mt-2 pt-4 border-t border-slate-800">
+                      Caught on <span className="text-slate-300">{new Date(traceData.timestamp).toLocaleString()}</span> using <span className="text-slate-300">{traceData.fishing_method || 'Standard Net'}</span>
                     </div>
                   </div>
                 </div>
@@ -155,26 +170,30 @@ const Traceability = () => {
 
               {/* Quality Node */}
               <div className="relative">
-                <div className="absolute -left-[41px] bg-purple-100 p-2 rounded-full border-4 border-white shadow-sm">
-                  <CheckCircle className="w-6 h-6 text-purple-600" />
+                <div className="absolute -left-[41px] bg-slate-900 p-2 rounded-full border-4 border-slate-800 shadow-sm z-10">
+                  <CheckCircle className="w-6 h-6 text-purple-500" />
                 </div>
-                <div className="glass-card p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">Quality Inspection</h3>
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-2xl hover:border-purple-500/30 transition-colors">
+                  <h3 className="text-lg font-bold text-white mb-4">Quality Inspection</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-slate-50 p-3 rounded-xl text-center">
+                    <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl text-center">
                       <p className="text-xs text-slate-500 mb-1">Grade</p>
-                      <p className="text-2xl font-bold text-purple-600">{traceData.quality.grade}</p>
+                      <p className="text-2xl font-bold text-purple-400">{traceData.quality_grade || 'N/A'}</p>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-xl text-center">
+                    <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl text-center">
                       <p className="text-xs text-slate-500 mb-1">Weight</p>
-                      <p className="text-xl font-bold text-slate-700">{traceData.quality.weight}</p>
+                      <p className="text-xl font-bold text-slate-300">{traceData.weight_kg ? `${traceData.weight_kg} kg` : 'N/A'}</p>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-xl text-center">
-                      <p className="text-xs text-slate-500 mb-1">Temp</p>
-                      <p className="text-xl font-bold text-slate-700">{traceData.quality.temperature}</p>
+                    <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl text-center">
+                      <p className="text-xs text-slate-500 mb-1">Freshness</p>
+                      <p className="text-xl font-bold text-slate-300">{traceData.freshness || 'N/A'}</p>
                     </div>
-                    <div className="col-span-full text-sm text-slate-400 mt-2 pt-2 border-t border-slate-100">
-                      Inspected on {new Date(traceData.quality.date).toLocaleString()} by {traceData.quality.inspector}
+                    <div className="col-span-full text-sm text-slate-500 mt-2 pt-4 border-t border-slate-800">
+                      {traceData.inspected_by ? (
+                          <>Inspected by <span className="text-slate-300">Inspector #{traceData.inspected_by}</span></>
+                      ) : (
+                          <span className="text-yellow-500">Pending Inspection</span>
+                      )}
                     </div>
                   </div>
                 </div>

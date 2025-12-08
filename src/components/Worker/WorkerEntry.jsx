@@ -1,0 +1,528 @@
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { mainAPI } from '../../services/api';
+import { getCurrentUser } from '../../services/utils';
+import QRScannerModal from '../Shared/QRScannerModal';
+import { QrCode, Scale, CheckCircle, AlertTriangle, Fish, Box, ArrowLeft, ArrowRight, Thermometer, History, X, RefreshCw, MapPin, Calendar } from 'lucide-react';
+
+const WorkerEntry = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [trips, setTrips] = useState([]);
+  const [crates, setCrates] = useState([]);
+  
+  // Initialize state from location or localStorage to persist context
+  const [selectedTripId, setSelectedTripId] = useState(() => {
+    return location.state?.tripId || localStorage.getItem('worker_active_trip_id') || '';
+  });
+
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // New State for Trip Manifest and Scanned Details
+  const [tripManifest, setTripManifest] = useState({ pending: [], inspected: [] });
+  const [scannedFishDetails, setScannedFishDetails] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    qrCode: '',
+    weight: '',
+    qualityGrade: 'A',
+    freshness: 'Excellent',
+    damage: '',
+    crateId: localStorage.getItem('worker_active_crate_id') || '', // Persist crate selection
+    temperature: ''
+  });
+
+  const user = getCurrentUser();
+
+  const loadData = async () => {
+    try {
+      // Use allSettled so one failure doesn't block the other
+      const [tripsResult, cratesResult] = await Promise.allSettled([
+        mainAPI.getAvailableTrips(),
+        mainAPI.getCrates()
+      ]);
+
+      // Handle Trips
+      if (tripsResult.status === 'fulfilled' && tripsResult.value.success) {
+        setTrips(tripsResult.value.trips || []);
+      } else {
+        console.warn("Failed to load trips:", tripsResult.reason || tripsResult.value);
+      }
+
+      // Handle Crates
+      if (cratesResult.status === 'fulfilled' && cratesResult.value.success) {
+        setCrates(cratesResult.value.crates || []);
+      } else {
+        console.warn("Failed to load crates:", cratesResult.reason || cratesResult.value);
+      }
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setMessage({ type: 'error', text: 'Connection Error: Ensure Backend is running.' });
+    }
+  };
+
+  const loadTripManifest = async () => {
+    if (!selectedTripId) return;
+    
+    try {
+      const response = await mainAPI.getTripCatch(selectedTripId);
+      if (response && response.success && response.logs) {
+        const pending = [];
+        const inspected = [];
+
+        response.logs.forEach(log => {
+            // If it has a quality grade, it's inspected. Otherwise, it's pending.
+            if (log.quality_grade) {
+                inspected.push(log);
+            } else {
+                pending.push(log);
+            }
+        });
+        
+        setTripManifest({ pending, inspected });
+      }
+    } catch (error) {
+      console.error('Error loading trip manifest:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Persist Trip ID and load manifest
+  useEffect(() => {
+    if (selectedTripId) {
+      localStorage.setItem('worker_active_trip_id', selectedTripId);
+      loadTripManifest();
+      setScannedFishDetails(null); // Reset scanned details on trip change
+    } else {
+      setTripManifest({ pending: [], inspected: [] });
+    }
+  }, [selectedTripId]);
+
+  // Persist Crate ID whenever it changes
+  useEffect(() => {
+    if (formData.crateId) {
+      localStorage.setItem('worker_active_crate_id', formData.crateId);
+    }
+  }, [formData.crateId]);
+
+  // Clear message after 3 seconds
+  useEffect(() => {
+    if (message.text) {
+      const timer = setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  const handleScan = async (code) => {
+    setIsScannerOpen(false);
+    setLoading(true);
+    
+    try {
+        const response = await mainAPI.getLogByQR(code);
+        
+        if (response.success && response.log) {
+            const log = response.log;
+            
+            // Check if trip matches
+            if (selectedTripId && log.trip_id !== parseInt(selectedTripId)) {
+                setMessage({ type: 'error', text: `Warning: This fish belongs to a different trip (${log.trips?.trip_code})!` });
+                // Optional: Auto-switch trip? For now, just warn.
+            }
+
+            setScannedFishDetails({
+                species: log.species_name,
+                vessel: log.trips?.vessel_name,
+                tripCode: log.trips?.trip_code,
+                date: new Date(log.created_at).toLocaleDateString(),
+                location: log.location_name || 'Unknown Location'
+            });
+
+            setFormData(prev => ({
+                ...prev,
+                qrCode: code,
+                weight: log.weight_kg || '', // Pre-fill weight if exists
+                qualityGrade: log.quality_grade || 'A', // Pre-fill or default
+                freshness: log.freshness || 'Excellent',
+                damage: log.damage_assessment || ''
+            }));
+
+            // Play success sound
+            if (navigator.vibrate) navigator.vibrate(200);
+
+        } else {
+            // New QR Code (not in system yet)
+            setScannedFishDetails(null);
+            setFormData(prev => ({ ...prev, qrCode: code, weight: '' }));
+            setMessage({ type: 'info', text: 'New QR Code detected. Please enter details.' });
+        }
+    } catch (error) {
+        console.error("Scan Error:", error);
+        setMessage({ type: 'error', text: 'Error fetching QR details' });
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedTripId) {
+      setMessage({ type: 'error', text: 'Please select a trip first' });
+      return;
+    }
+    
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await mainAPI.saveFish({
+        qrCode: formData.qrCode,
+        weight: formData.weight,
+        qualityGrade: formData.qualityGrade,
+        freshness: formData.freshness,
+        damage: formData.damage,
+        crateId: formData.crateId,
+        tripId: selectedTripId,
+        inspectorId: user?.id
+      });
+
+      if (response.success) {
+        setMessage({ type: 'success', text: 'Quality data saved successfully!' });
+        
+        // Refresh manifest
+        loadTripManifest();
+
+        setFormData(prev => ({ 
+            ...prev, 
+            qrCode: '', 
+            weight: '', 
+            damage: '',
+            // Keep crate, quality and freshness
+        }));
+        setScannedFishDetails(null);
+      } else {
+        setMessage({ type: 'error', text: response.message || 'Failed to save data' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <button 
+          onClick={() => navigate('/worker')}
+          className="flex items-center text-slate-500 hover:text-blue-600 transition-colors group"
+        >
+          <div className="bg-white p-2 rounded-lg border border-slate-200 mr-3 group-hover:border-blue-200 shadow-sm">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          </div>
+          <span className="font-medium">Back to Dashboard</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-500">Inspector:</span>
+            <span className="font-bold text-slate-900 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                {user?.full_name}
+            </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Main Form */}
+        <div className="lg:col-span-2 space-y-6">
+            {/* Trip Selector Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">Active Trip Context</label>
+                    <button onClick={loadData} className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" /> Refresh List
+                    </button>
+                </div>
+                <select
+                    value={selectedTripId}
+                    onChange={(e) => setSelectedTripId(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                >
+                    <option value="">-- Select Trip to Begin --</option>
+                    {trips.length === 0 && <option disabled>No active trips found</option>}
+                    {trips.map(trip => (
+                    <option key={trip.id} value={trip.id}>
+                        {trip.vessel_name} ({trip.trip_code})
+                    </option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Inspection Form Card */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                        <Fish className="w-5 h-5 text-blue-600" />
+                        New Inspection Entry
+                    </h2>
+                    {loading && <span className="text-xs font-bold text-blue-600 animate-pulse">SAVING...</span>}
+                </div>
+
+                <div className="p-6 md:p-8">
+                    {message.text && (
+                        <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
+                        message.type === 'error' 
+                            ? 'bg-red-50 text-red-700 border border-red-100' 
+                            : 'bg-green-50 text-green-700 border border-green-100'
+                        }`}>
+                        {message.type === 'error' ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                        {message.text}
+                        </div>
+                    )}
+
+                    {/* Scanned Details Card */}
+                    {scannedFishDetails && (
+                        <div className="mb-8 bg-blue-50 rounded-xl p-4 border border-blue-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                            <div>
+                                <h4 className="text-blue-900 font-bold text-lg flex items-center gap-2">
+                                    <Fish className="w-5 h-5" />
+                                    {scannedFishDetails.species || 'Unknown Species'}
+                                </h4>
+                                <div className="flex flex-wrap gap-3 mt-2 text-sm text-blue-700">
+                                    <span className="flex items-center gap-1"><Box className="w-3 h-3" /> {scannedFishDetails.vessel || 'Unknown Vessel'}</span>
+                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {scannedFishDetails.date}</span>
+                                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {scannedFishDetails.location}</span>
+                                </div>
+                            </div>
+                            <div className="bg-white px-3 py-1 rounded-lg border border-blue-200 text-blue-800 text-xs font-mono">
+                                {scannedFishDetails.tripCode || 'NO TRIP'}
+                            </div>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        {/* QR Code Section */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Fish Tag Identification</label>
+                            <div className="flex gap-3">
+                                <div className="relative flex-1">
+                                    <QrCode className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        value={formData.qrCode}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, qrCode: e.target.value }))}
+                                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-lg"
+                                        placeholder="Scan QR code..."
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsScannerOpen(true)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+                                >
+                                    <QrCode className="w-5 h-5" />
+                                    Scan
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Weight */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
+                                <div className="relative group">
+                                    <Scale className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.weight}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
+                                        className="input-field pl-10 text-lg font-semibold"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Crate Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Assign to Crate</label>
+                                <div className="relative group">
+                                    <Box className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <select
+                                        value={formData.crateId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, crateId: e.target.value }))}
+                                        className="input-field pl-10"
+                                    >
+                                        <option value="">-- No Crate --</option>
+                                        {crates.map(crate => (
+                                        <option key={crate.id} value={crate.id}>
+                                            {crate.crate_code} ({crate.status})
+                                        </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quality Grade */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-3">Quality Grade</label>
+                            <div className="grid grid-cols-3 gap-4">
+                                {['A', 'B', 'C'].map((grade) => (
+                                <button
+                                    key={grade}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, qualityGrade: grade }))}
+                                    className={`
+                                    relative overflow-hidden py-4 rounded-xl font-bold text-2xl transition-all duration-200
+                                    ${formData.qualityGrade === grade 
+                                        ? grade === 'A' ? 'bg-green-500 text-white shadow-green-200 shadow-lg scale-105' :
+                                        grade === 'B' ? 'bg-yellow-500 text-white shadow-yellow-200 shadow-lg scale-105' :
+                                        'bg-red-500 text-white shadow-red-200 shadow-lg scale-105'
+                                        : 'bg-white border-2 border-slate-100 text-slate-400 hover:border-slate-300 hover:bg-slate-50'}
+                                    `}
+                                >
+                                    {grade}
+                                    {formData.qualityGrade === grade && (
+                                        <div className="absolute top-2 right-2">
+                                            <CheckCircle className="w-4 h-4 text-white/80" />
+                                        </div>
+                                    )}
+                                </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Freshness */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-3">Freshness Grade</label>
+                            <div className="flex flex-wrap gap-3">
+                                {['Excellent', 'Good', 'Fair', 'Poor'].map((grade) => (
+                                <button
+                                    key={grade}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, freshness: grade }))}
+                                    className={`
+                                    flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all border
+                                    ${formData.freshness === grade 
+                                        ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}
+                                    `}
+                                >
+                                    {grade}
+                                </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Damage Assessment */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Damage Assessment</label>
+                            <textarea
+                                value={formData.damage}
+                                onChange={(e) => setFormData(prev => ({ ...prev, damage: e.target.value }))}
+                                className="input-field min-h-[80px] resize-none"
+                                placeholder="Describe any visible damage (optional)..."
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading ? 'Processing...' : 'Submit Inspection'}
+                            {!loading && <ArrowRight className="w-5 h-5" />}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {/* Right Column: Trip Manifest */}
+        <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sticky top-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <History className="w-5 h-5 text-slate-400" />
+                        Trip Manifest
+                    </h3>
+                    <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                        {tripManifest.pending.length + tripManifest.inspected.length} Items
+                    </span>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 mb-4">
+                    <div className="flex-1 text-center py-2 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg border border-blue-100">
+                        Pending ({tripManifest.pending.length})
+                    </div>
+                    <div className="flex-1 text-center py-2 bg-green-50 text-green-700 font-bold text-xs rounded-lg border border-green-100">
+                        Done ({tripManifest.inspected.length})
+                    </div>
+                </div>
+                
+                <div className="space-y-3">
+                    {tripManifest.pending.length === 0 && tripManifest.inspected.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            <p className="text-sm">No items found for this trip</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Pending Items */}
+                            {tripManifest.pending.map((item) => (
+                                <div key={item.id} className="p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer group"
+                                     onClick={() => handleScan(item.qr_code)}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-mono text-xs text-slate-500 mb-1 group-hover:text-blue-600">{item.qr_code}</p>
+                                            <p className="font-bold text-slate-900 text-sm">{item.species_name || 'Unknown Species'}</p>
+                                        </div>
+                                        <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full">Pending</span>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Inspected Items (Last 5) */}
+                            {tripManifest.inspected.slice(0, 5).map((item) => (
+                                <div key={item.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 opacity-75">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-mono text-xs text-slate-500 mb-1">{item.qr_code}</p>
+                                            <p className="font-bold text-slate-700 text-sm">{item.weight_kg} kg</p>
+                                        </div>
+                                        <div className={`
+                                            w-6 h-6 rounded flex items-center justify-center font-bold text-xs
+                                            ${item.quality_grade === 'A' ? 'bg-green-100 text-green-700' : 
+                                              item.quality_grade === 'B' ? 'bg-yellow-100 text-yellow-700' : 
+                                              'bg-red-100 text-red-700'}
+                                        `}>
+                                            {item.quality_grade}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+      </div>
+
+      <QRScannerModal 
+        isOpen={isScannerOpen} 
+        onClose={() => setIsScannerOpen(false)} 
+        onScan={handleScan} 
+      />
+    </div>
+  );
+};
+
+export default WorkerEntry;

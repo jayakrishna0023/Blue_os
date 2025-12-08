@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mainAPI } from '../../services/api';
 import { fileToBase64 } from '../../services/utils';
-import { Ship, User, FileText, Upload, CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Ship, User, FileText, Upload, CheckCircle, ArrowLeft, AlertCircle, Waves } from 'lucide-react';
 
 const VesselRegistry = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -90,18 +89,24 @@ const VesselRegistry = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="glass-card max-w-md w-full p-8 text-center">
-          <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 rounded-full blur-[120px]"></div>
+        </div>
+
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 max-w-md w-full p-8 text-center rounded-3xl shadow-2xl relative z-10">
+          <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-500/30">
             <CheckCircle className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Submitted!</h2>
-          <p className="text-slate-500 mb-8">
+          <h2 className="text-2xl font-bold text-white mb-2">Registration Submitted!</h2>
+          <p className="text-slate-400 mb-8">
             Your vessel registration has been submitted successfully. An admin will review your documents and approve your account shortly.
           </p>
           <button 
             onClick={() => navigate('/')}
-            className="btn-primary w-full"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20"
           >
             Return to Login
           </button>
@@ -111,24 +116,35 @@ const VesselRegistry = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-x-hidden font-sans selection:bg-blue-500/30 selection:text-blue-200">
+      
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
+          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="max-w-4xl mx-auto relative z-10">
         <button 
           onClick={() => navigate('/')}
-          className="flex items-center text-slate-500 hover:text-slate-900 mb-8 transition-colors"
+          className="flex items-center text-slate-400 hover:text-white mb-8 transition-colors group"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
+          <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
           Back to Login
         </button>
 
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-slate-900">Vessel Registry</h1>
-          <p className="text-slate-500 mt-2">Register your vessel with BlueOS</p>
+          <div className="inline-flex items-center justify-center p-3 bg-blue-600/20 rounded-2xl mb-4 border border-blue-500/30 backdrop-blur-md">
+             <Waves className="w-8 h-8 text-blue-400" />
+          </div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Vessel Registry</h1>
+          <p className="text-slate-400 mt-2 text-lg">Register your vessel with the BlueOS Platform</p>
         </div>
 
-        <div className="glass-card p-8">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl">
           {error && (
-            <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-2 text-sm">
+            <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-2 text-sm">
               <AlertCircle className="w-5 h-5" />
               {error}
             </div>
@@ -137,58 +153,64 @@ const VesselRegistry = () => {
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Step 1: Owner Details */}
             <div className="space-y-6">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 border-b pb-2">
-                <User className="w-5 h-5 text-ocean-600" />
+              <h3 className="text-xl font-bold flex items-center gap-3 text-white border-b border-slate-800 pb-4">
+                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                    <User className="w-5 h-5" />
+                </div>
                 Owner Details
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Full Name</label>
                   <input
                     type="text"
                     name="ownerName"
                     value={formData.ownerName}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    placeholder="Enter owner's full name"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Contact Number</label>
                   <input
                     type="tel"
                     name="contactNumber"
                     value={formData.contactNumber}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    placeholder="+91 98765 43210"
                     required
                   />
                 </div>
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Email Address</label>
                   <input
                     type="email"
                     name="emailAddress"
                     value={formData.emailAddress}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    placeholder="owner@example.com"
                     required
                   />
                 </div>
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Address</label>
                   <textarea
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="input-field min-h-[100px]"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600 min-h-[100px]"
+                    placeholder="Enter complete address"
                     required
                   />
                 </div>
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">ID Proof</label>
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+                  <label className="block text-sm font-medium text-slate-400 mb-2">ID Proof</label>
+                  <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:bg-slate-800/50 hover:border-blue-500/50 transition-all cursor-pointer relative group">
                     <input
                       type="file"
                       name="idProof"
@@ -196,9 +218,11 @@ const VesselRegistry = () => {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       accept="image/*,.pdf"
                     />
-                    <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">
-                      {formData.idProof ? 'File Selected' : 'Click to upload ID Proof'}
+                    <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <Upload className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <p className="text-sm text-slate-400 group-hover:text-white transition-colors">
+                      {formData.idProof ? <span className="text-emerald-400 font-medium">File Selected</span> : 'Click to upload ID Proof (PDF/Image)'}
                     </p>
                   </div>
                 </div>
@@ -207,133 +231,136 @@ const VesselRegistry = () => {
 
             {/* Step 2: Vessel Details */}
             <div className="space-y-6 pt-6">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 border-b pb-2">
-                <Ship className="w-5 h-5 text-ocean-600" />
+              <h3 className="text-xl font-bold flex items-center gap-3 text-white border-b border-slate-800 pb-4">
+                <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                    <Ship className="w-5 h-5" />
+                </div>
                 Vessel Details
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vessel Name</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Vessel Name</label>
                   <input
                     type="text"
                     name="vesselName"
                     value={formData.vesselName}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    placeholder="e.g., Sea Warrior"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Registration Number</label>
                   <input
                     type="text"
                     name="registrationNumber"
                     value={formData.registrationNumber}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     placeholder="e.g., TN02T2756"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vessel Type</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Vessel Type</label>
                   <select
                     name="vesselType"
                     value={formData.vesselType}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                     required
                   >
-                    <option value="">Select Type</option>
-                    <option value="M - Mechanised">M - Mechanised</option>
-                    <option value="O - Motorised">O - Motorised</option>
-                    <option value="D - Deep Sea">D - Deep Sea</option>
+                    <option value="" className="bg-slate-900">Select Type</option>
+                    <option value="M - Mechanised" className="bg-slate-900">M - Mechanised</option>
+                    <option value="O - Motorised" className="bg-slate-900">O - Motorised</option>
+                    <option value="D - Deep Sea" className="bg-slate-900">D - Deep Sea</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Home Port</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Home Port</label>
                   <select
                     name="homePort"
                     value={formData.homePort}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                     required
                   >
-                    <option value="">Select Port</option>
-                    <option value="C - Chennai">Chennai</option>
-                    <option value="N - Nagapattinam">Nagapattinam</option>
-                    <option value="T - Thuthookudi">Thuthookudi</option>
-                    <option value="R - Ramanathapuram">Ramanathapuram</option>
-                    <option value="K - Kanyakumari">Kanyakumari</option>
+                    <option value="" className="bg-slate-900">Select Port</option>
+                    <option value="C - Chennai" className="bg-slate-900">Chennai</option>
+                    <option value="N - Nagapattinam" className="bg-slate-900">Nagapattinam</option>
+                    <option value="T - Thuthookudi" className="bg-slate-900">Thuthookudi</option>
+                    <option value="R - Ramanathapuram" className="bg-slate-900">Ramanathapuram</option>
+                    <option value="K - Kanyakumari" className="bg-slate-900">Kanyakumari</option>
                   </select>
                 </div>
                 
                 {/* Technical Specs */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Crew Capacity</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Crew Capacity</label>
                   <input
                     type="number"
                     name="crewCapacity"
                     value={formData.crewCapacity}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Storage (kg)</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Storage (kg)</label>
                   <input
                     type="number"
                     name="storageCapacity"
                     value={formData.storageCapacity}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Engine Power (HP)</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Engine Power (HP)</label>
                   <input
                     type="number"
                     name="enginePower"
                     value={formData.enginePower}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Fuel Type</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Fuel Type</label>
                   <select
                     name="fuelType"
                     value={formData.fuelType}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                     required
                   >
-                    <option value="">Select Fuel</option>
-                    <option value="Diesel">Diesel</option>
-                    <option value="Petrol">Petrol</option>
-                    <option value="Solar Hybrid">Solar Hybrid</option>
+                    <option value="" className="bg-slate-900">Select Fuel</option>
+                    <option value="Diesel" className="bg-slate-900">Diesel</option>
+                    <option value="Petrol" className="bg-slate-900">Petrol</option>
+                    <option value="Solar Hybrid" className="bg-slate-900">Solar Hybrid</option>
                   </select>
                 </div>
 
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">License Number</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">License Number</label>
                   <input
                     type="text"
                     name="licenseNumber"
                     value={formData.licenseNumber}
                     onChange={handleChange}
-                    className="input-field"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     required
                   />
                 </div>
 
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vessel Documents</label>
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Vessel Documents</label>
+                  <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:bg-slate-800/50 hover:border-blue-500/50 transition-all cursor-pointer relative group">
                     <input
                       type="file"
                       name="vesselDocuments"
@@ -342,25 +369,36 @@ const VesselRegistry = () => {
                       multiple
                       accept="image/*,.pdf"
                     />
-                    <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">
+                    <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <FileText className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <p className="text-sm text-slate-400 group-hover:text-white transition-colors">
                       {formData.vesselDocuments.length > 0 
-                        ? `${formData.vesselDocuments.length} files selected` 
-                        : 'Upload Registration & License Docs'}
+                        ? <span className="text-emerald-400 font-medium">{formData.vesselDocuments.length} Files Selected</span> 
+                        : 'Click to upload Registration/Insurance Docs'}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6">
+            <div className="pt-6 border-t border-slate-800">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-900/20 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? 'Submitting...' : 'Register Vessel'}
-                {!loading && <CheckCircle className="w-5 h-5" />}
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    Submit Registration
+                    <CheckCircle className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
           </form>

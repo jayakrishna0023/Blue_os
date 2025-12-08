@@ -8,7 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Initialize Database
 initDB();
@@ -63,6 +64,21 @@ app.post('/api/auth/login', async (req, res) => {
         } else {
             res.json({ success: false, message: 'Invalid credentials' });
         }
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get All Users (Admin)
+app.get('/api/users', async (req, res) => {
+    try {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('id, username, role, vessel_name, created_at')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, data: users });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -171,6 +187,52 @@ app.get('/api/trips/:tripId/catch', async (req, res) => {
     }
 });
 
+// Get Catch Log by QR (with Trip details)
+app.get('/api/catch/qr/:qrCode', async (req, res) => {
+    const { qrCode } = req.params;
+    try {
+        // Try to fetch log with trip details
+        // Note: This requires a Foreign Key between catch_logs.trip_id and trips.id
+        const { data: logs, error } = await supabase
+            .from('catch_logs')
+            .select(`
+                *,
+                trips (
+                    trip_code,
+                    vessel_name,
+                    departure_date
+                )
+            `)
+            .eq('qr_code', qrCode);
+
+        if (error) throw error;
+
+        if (logs.length > 0) {
+            const log = logs[0];
+            
+            // Fallback: If the join failed (log.trips is null) but we have trip_id, fetch trip manually
+            if (!log.trips && log.trip_id) {
+                const { data: tripData } = await supabase
+                    .from('trips')
+                    .select('trip_code, vessel_name, departure_date')
+                    .eq('id', log.trip_id)
+                    .single();
+                
+                if (tripData) {
+                    log.trips = tripData;
+                }
+            }
+
+            res.json({ success: true, log });
+        } else {
+            res.json({ success: false, message: 'QR Code not found' });
+        }
+    } catch (error) {
+        console.error("Error fetching QR log:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Catch Logs (Insert or Update)
 app.post('/api/catch', async (req, res) => {
     const data = req.body;
@@ -199,8 +261,41 @@ app.post('/api/catch', async (req, res) => {
         }
         
         if (existing.length > 0) {
-            console.warn(`Duplicate QR scan attempted: ${cleanQr}`);
-            return res.json({ success: false, message: `QR Code ${cleanQr} has already been used.` });
+            // If it exists, we treat this as an INSPECTION UPDATE
+            console.log(`Updating existing catch log for QR: ${cleanQr}`);
+            
+            const updatePayload = {
+                quality_grade: data.qualityGrade,
+                freshness: data.freshness,
+                damage_assessment: data.damage
+            };
+
+            // Only update weight if provided (don't overwrite with 0 if not measured)
+            if (data.weight) {
+                updatePayload.weight_kg = data.weight;
+            }
+
+            // If crate ID is provided (Worker assigning to crate)
+            if (data.crateId) {
+                updatePayload.crate_id = data.crateId;
+            }
+
+            // Track who performed the inspection
+            if (data.inspectorId) {
+                updatePayload.inspected_by = data.inspectorId;
+            }
+
+            const { error: updateError } = await supabase
+                .from('catch_logs')
+                .update(updatePayload)
+                .eq('qr_code', cleanQr);
+
+            if (updateError) {
+                console.error("Supabase Catch Update Error:", updateError);
+                throw updateError;
+            }
+
+            return res.json({ success: true, message: 'Inspection data updated successfully' });
         } else {
             // Insert new catch (Captain)
             let imageUrls = [];
@@ -331,6 +426,20 @@ app.post('/api/qr/generate', async (req, res) => {
 });
 
 // Crates
+app.get('/api/crates', async (req, res) => {
+    try {
+        const { data: crates, error } = await supabase
+            .from('crates')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, crates });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/api/crates/verify-fish', async (req, res) => {
     const { qrCode } = req.body;
     const cleanQr = qrCode ? qrCode.trim() : '';
@@ -643,7 +752,9 @@ app.get('/api/trace/:qr', async (req, res) => {
                 ...row,
                 vessel_name: row.trips?.vessel_name,
                 fishing_method: row.trips?.fishing_method,
-                departure_date: row.trips?.departure_date
+                departure_date: row.trips?.departure_date,
+                latitude: row.gps_lat,
+                longitude: row.gps_lng
             };
             res.json({ success: true, data: flatData });
         } else {
@@ -654,6 +765,12 @@ app.get('/api/trace/:qr', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export for Vercel
+module.exports = app;
+
+// Only listen if run directly
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}

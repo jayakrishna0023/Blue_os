@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './components/LandingPage';
 import Login from './components/Auth/Login';
 import CaptainDashboard from './components/Captain/CaptainDashboard';
 import WorkerDashboard from './components/Worker/WorkerDashboard';
@@ -7,6 +8,7 @@ import AdminDashboard from './components/Admin/AdminDashboard';
 import InspectorDashboard from './components/Inspector/InspectorDashboard';
 import Traceability from './components/Public/Traceability';
 import VesselRegistry from './components/Public/VesselRegistry';
+import About from './components/Public/About';
 import QRGenerator from './components/Admin/QRGenerator';
 import { getCurrentUser } from './services/utils';
 
@@ -15,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const user = getCurrentUser();
   
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -24,7 +26,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user.role === 'worker') return <Navigate to="/worker" replace />;
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
     if (user.role === 'inspector') return <Navigate to="/inspector" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
@@ -32,11 +34,13 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <div className="min-h-screen bg-slate-950 text-white font-sans">
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/about" element={<About />} />
           <Route path="/traceability" element={<Traceability />} />
           <Route path="/registry" element={<VesselRegistry />} />
 
