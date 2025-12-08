@@ -14,6 +14,18 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 // Initialize Database
 initDB();
 
+// Health Check
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date(),
+        env: {
+            hasUrl: !!process.env.SUPABASE_URL,
+            hasKey: !!process.env.SUPABASE_KEY
+        }
+    });
+});
+
 async function uploadImage(base64Data, bucketName, path) {
     if (!base64Data) return null;
     try {
