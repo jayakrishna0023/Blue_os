@@ -264,8 +264,6 @@ This is a system-generated document from BlueOS.
   const handleVesselInputChange = (field, value) => {
     setEditedVesselData(prev => ({ ...prev, [field]: value }));
   };
-    setSelectedVessel(null);
-  };
 
   const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
