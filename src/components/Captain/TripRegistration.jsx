@@ -121,25 +121,25 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
 
   if (existingTrip) {
     return (
-      <div className="glass-card p-6 text-center">
-        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Ship className="w-8 h-8" />
+      <div className="glass-card p-4 sm:p-6 text-center">
+        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+          <Ship className="w-6 h-6 sm:w-8 sm:h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Trip Status</h2>
-        <p className="text-slate-500 mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">Trip Status</h2>
+        <p className="text-sm sm:text-base text-slate-500 mb-4 sm:mb-6 px-2">
             {existingTrip.status === 'active' 
                 ? 'You have an active trip. Go to the Catch Log tab to record species.' 
                 : 'Your trip is pending verification by a coordinator.'}
         </p>
-        <div className="grid grid-cols-2 gap-4 text-left max-w-md mx-auto bg-slate-50 p-4 rounded-xl">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 text-left max-w-md mx-auto bg-slate-50 p-3 sm:p-4 rounded-xl">
           <div>
-            <p className="text-xs text-slate-400">Trip Code</p>
-            <p className="font-mono font-medium">{existingTrip.trip_code || 'Pending'}</p>
+            <p className="text-[10px] sm:text-xs text-slate-400">Trip Code</p>
+            <p className="font-mono font-medium text-sm sm:text-base truncate">{existingTrip.trip_code || 'Pending'}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Status</p>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${existingTrip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-              {existingTrip.status === 'active' ? 'Active' : 'Pending Approval'}
+            <p className="text-[10px] sm:text-xs text-slate-400">Status</p>
+            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${existingTrip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {existingTrip.status === 'active' ? 'Active' : 'Pending'}
             </span>
           </div>
         </div>
@@ -149,39 +149,39 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="glass-card p-6 md:p-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="bg-ocean-100 p-3 rounded-xl">
-            <Ship className="w-6 h-6 text-ocean-600" />
+      <div className="glass-card p-4 sm:p-6 md:p-8">
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div className="bg-ocean-100 p-2 sm:p-3 rounded-lg sm:rounded-xl">
+            <Ship className="w-5 h-5 sm:w-6 sm:h-6 text-ocean-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">New Trip Registration</h2>
-            <p className="text-sm text-slate-500">Enter details for verification</p>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">New Trip</h2>
+            <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">Enter details for verification</p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-2 text-sm">
-            <AlertCircle className="w-5 h-5" />
-            {error}
+          <div className="mb-4 sm:mb-6 bg-red-50 text-red-600 p-3 sm:p-4 rounded-lg sm:rounded-xl flex items-center gap-2 text-xs sm:text-sm">
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+            <span className="line-clamp-2">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Trip Code Display - Now Pending */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Trip Code</label>
-              <div className="text-lg font-mono font-bold text-slate-400 mt-1">
-                Pending Verification
+          <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <label className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Trip Code</label>
+              <div className="text-base sm:text-lg font-mono font-bold text-slate-400 mt-0.5 sm:mt-1 truncate">
+                Pending
               </div>
             </div>
-            <div className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">
+            <div className="bg-yellow-100 text-yellow-700 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0">
               DRAFT
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             {/* Trip Code (Read Only) */}
             <div className="col-span-full">
               <label className="block text-sm font-medium text-slate-700 mb-1">Trip Code</label>

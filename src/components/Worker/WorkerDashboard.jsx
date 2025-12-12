@@ -1,14 +1,17 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, LogOut, User, Package, CheckSquare } from 'lucide-react';
 import { authAPI } from '../../services/api';
+import { getCurrentUser } from '../../services/utils';
 import WorkerHome from './WorkerHome';
 import WorkerEntry from './WorkerEntry';
 import CrateManagement from './CrateManagement';
 import TripApprovals from './TripApprovals';
+import WorkerProfile from './WorkerProfile';
 
 const WorkerDashboard = () => {
   const location = useLocation();
+  const user = getCurrentUser();
 
   const handleLogout = () => {
     authAPI.logout();
@@ -29,6 +32,19 @@ const WorkerDashboard = () => {
           <p className="text-xs text-slate-400 font-medium tracking-wider uppercase mt-1">Worker Portal</p>
         </div>
 
+        {/* User Mini Profile */}
+        <div className="p-4 border-b border-slate-100">
+          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm">
+              {(user?.full_name || user?.username || 'W').charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-slate-800 truncate text-sm">{user?.full_name || user?.username}</p>
+              <p className="text-xs text-slate-500">Quality Inspector</p>
+            </div>
+          </div>
+        </div>
+
         <nav className="flex-1 p-4 space-y-2">
           <Link 
             to="/worker" 
@@ -40,6 +56,18 @@ const WorkerDashboard = () => {
           >
             <LayoutDashboard className="w-5 h-5" />
             Dashboard
+          </Link>
+
+          <Link 
+            to="/worker/profile" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+              isActive('/worker/profile') 
+                ? 'bg-blue-50 text-blue-700 shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <User className="w-5 h-5" />
+            My Profile
           </Link>
 
           <Link 
@@ -62,7 +90,7 @@ const WorkerDashboard = () => {
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <ClipboardCheck className="w-5 h-5" />
+            <CheckSquare className="w-5 h-5" />
             Trip Approvals
           </Link>
 
@@ -74,7 +102,7 @@ const WorkerDashboard = () => {
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
-            <ClipboardCheck className="w-5 h-5" />
+            <Package className="w-5 h-5" />
             Crates Packing
           </Link>
         </nav>
@@ -110,9 +138,18 @@ const WorkerDashboard = () => {
             <span className="text-[10px] font-bold">Home</span>
         </Link>
         <Link 
+            to="/worker/profile" 
+            className={`p-3 rounded-xl flex flex-col items-center gap-1 ${
+                isActive('/worker/profile') ? 'text-blue-600 bg-blue-50' : 'text-slate-400'
+            }`}
+        >
+            <User className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Profile</span>
+        </Link>
+        <Link 
             to="/worker/entry" 
             className={`p-3 rounded-xl flex flex-col items-center gap-1 ${
-                location.pathname === '/worker/entry' ? 'text-blue-600 bg-blue-50' : 'text-slate-400'
+                isActive('/worker/entry') ? 'text-blue-600 bg-blue-50' : 'text-slate-400'
             }`}
         >
             <ClipboardCheck className="w-6 h-6" />
@@ -124,6 +161,7 @@ const WorkerDashboard = () => {
       <main className="flex-1 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 pb-24 md:pb-8">
         <Routes>
           <Route path="/" element={<WorkerHome />} />
+          <Route path="/profile" element={<WorkerProfile />} />
           <Route path="/entry" element={<WorkerEntry />} />
           <Route path="/approvals" element={<TripApprovals />} />
           <Route path="/crates" element={<CrateManagement />} />

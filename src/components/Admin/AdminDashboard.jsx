@@ -5,7 +5,7 @@ import { getCurrentUser } from '../../services/utils';
 import { 
   LayoutDashboard, Ship, Anchor, Fish, Users, QrCode, 
   LogOut, ChevronRight, CheckCircle, XCircle, Clock, FileText, 
-  MapPin, Calendar, Search, Filter, ArrowLeft, Waves
+  MapPin, Calendar, Search, Filter, ArrowLeft, Waves, Download, Edit, Save, X
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -22,6 +22,8 @@ const AdminDashboard = () => {
   const [tripDetails, setTripDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [selectedVessel, setSelectedVessel] = useState(null);
+  const [editingVessel, setEditingVessel] = useState(false);
+  const [editedVesselData, setEditedVesselData] = useState({});
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,7 +50,10 @@ const AdminDashboard = () => {
   const filteredTrips = trips.filter(t => {
     const matchesSearch = (t.trip_code?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                           (t.vessel_name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || t.status === filterStatus; // Changed trip_status to status
+    // REQ- prefix means pending approval, otherwise check status
+    const isPending = t.trip_code?.startsWith('REQ-') || t.status === 'pending';
+    const tripStatus = isPending ? 'pending' : t.status;
+    const matchesFilter = filterStatus === 'all' || tripStatus === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
@@ -133,9 +138,20 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleReject = (pendingId) => {
+  const handleReject = async (pendingId) => {
     if (window.confirm('Are you sure you want to reject this registration?')) {
-      alert(`Registration ${pendingId} rejected. (Backend logic pending implementation)`);
+      try {
+        const response = await adminAPI.rejectRegistration(pendingId);
+        if (response.success) {
+          alert('Registration rejected.');
+          loadDashboardData();
+        } else {
+          alert('Failed to reject: ' + (response.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error rejecting registration:', error);
+        alert('An error occurred while rejecting registration.');
+      }
     }
   };
 
@@ -164,20 +180,101 @@ const AdminDashboard = () => {
 
   const handleViewVesselDetails = (vessel) => {
     setSelectedVessel(vessel);
+    setEditedVesselData(vessel);
+    setEditingVessel(false);
   };
 
   const closeVesselDetails = () => {
     setSelectedVessel(null);
+    setEditingVessel(false);
+    setEditedVesselData({});
+  };
+
+  const handleEditVessel = () => {
+    setEditingVessel(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingVessel(false);
+    setEditedVesselData(selectedVessel);
+  };
+
+  const handleSaveVessel = async () => {
+    try {
+      const response = await adminAPI.updateVessel(selectedVessel.id, editedVesselData);
+      if (response.success) {
+        alert('Vessel details updated successfully!');
+        setSelectedVessel(editedVesselData);
+        setEditingVessel(false);
+        loadDashboardData(); // Refresh data
+      } else {
+        alert('Failed to update vessel: ' + (response.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating vessel:', error);
+      alert('An error occurred while updating the vessel.');
+    }
+  };
+
+  const handleDownloadDocs = () => {
+    // Generate a simple vessel certificate/document as download
+    const vesselData = selectedVessel;
+    const docContent = `
+=================================================
+           BLUEOS VESSEL REGISTRATION
+=================================================
+
+VESSEL DETAILS
+--------------
+Vessel Name: ${vesselData.vessel_name || 'N/A'}
+Registration No: ${vesselData.registration_number || 'N/A'}
+Home Port: ${vesselData.home_port || 'N/A'}
+Vessel Type: ${vesselData.vessel_type || 'N/A'}
+Engine Power: ${vesselData.engine_power || 'N/A'} HP
+Fuel Type: ${vesselData.fuel_type || 'Diesel'}
+Storage Capacity: ${vesselData.storage_capacity || 'N/A'} kg
+Crew Capacity: ${vesselData.crew_capacity || 'N/A'}
+
+OWNER DETAILS
+-------------
+Owner Name: ${vesselData.owner_name || 'N/A'}
+Contact: ${vesselData.contact_number || 'N/A'}
+Email: ${vesselData.email || 'N/A'}
+Address: ${vesselData.address || 'N/A'}
+
+License Number: ${vesselData.license_number || 'N/A'}
+
+-------------------------------------------------
+Generated on: ${new Date().toLocaleString()}
+This is a system-generated document from BlueOS.
+=================================================
+    `;
+
+    const blob = new Blob([docContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vessel_${vesselData.registration_number || 'doc'}_certificate.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleVesselInputChange = (field, value) => {
+    setEditedVesselData(prev => ({ ...prev, [field]: value }));
+  };
+    setSelectedVessel(null);
   };
 
   const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-6 rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
-      <div>
-        <p className="text-slate-400 text-sm font-medium mb-1">{title}</p>
-        <h3 className="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">{value}</h3>
+    <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
+      <div className="min-w-0">
+        <p className="text-slate-400 text-xs sm:text-sm font-medium mb-1 truncate">{title}</p>
+        <h3 className="text-xl sm:text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">{value}</h3>
       </div>
-      <div className={`p-4 rounded-2xl ${color} bg-opacity-20`}>
-        <Icon className={`w-8 h-8 ${color.replace('bg-', 'text-')}`} />
+      <div className={`p-2 sm:p-4 rounded-xl sm:rounded-2xl ${color} bg-opacity-20 flex-shrink-0`}>
+        <Icon className={`w-5 h-5 sm:w-8 sm:h-8 ${color.replace('bg-', 'text-')}`} />
       </div>
     </div>
   );
@@ -195,6 +292,24 @@ const AdminDashboard = () => {
       <span className="font-medium">{label}</span>
       {activeView === id && <ChevronRight className="w-4 h-4 ml-auto" />}
     </button>
+  );
+
+  // Admin Profile Mini Card
+  const AdminProfileMini = () => (
+    <div className="p-4 border-b border-slate-800">
+      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-800/50 to-slate-700/30 rounded-xl border border-slate-700">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+          {(user?.full_name || user?.username || 'A').charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-white truncate text-sm">{user?.full_name || user?.username}</p>
+          <p className="text-xs text-slate-400">Administrator</p>
+        </div>
+        <span className="bg-purple-500/20 px-2 py-1 rounded-full text-[10px] font-bold text-purple-400 uppercase border border-purple-500/30">
+          ADMIN
+        </span>
+      </div>
+    </div>
   );
 
   // Render Trip Details View
@@ -411,12 +526,37 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-900/20">
-                            Edit Details
-                        </button>
-                        <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-medium transition-colors border border-slate-700">
-                            Download Docs
-                        </button>
+                        {editingVessel ? (
+                          <>
+                            <button 
+                              onClick={handleSaveVessel}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-colors shadow-lg shadow-emerald-900/20 flex items-center gap-2"
+                            >
+                              <Save className="w-4 h-4" /> Save
+                            </button>
+                            <button 
+                              onClick={handleCancelEdit}
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-medium transition-colors border border-slate-700 flex items-center gap-2"
+                            >
+                              <X className="w-4 h-4" /> Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={handleEditVessel}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-900/20 flex items-center gap-2"
+                            >
+                              <Edit className="w-4 h-4" /> Edit Details
+                            </button>
+                            <button 
+                              onClick={handleDownloadDocs}
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-medium transition-colors border border-slate-700 flex items-center gap-2"
+                            >
+                              <Download className="w-4 h-4" /> Download Docs
+                            </button>
+                          </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -431,19 +571,54 @@ const AdminDashboard = () => {
                     <div className="space-y-4">
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Full Name</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.owner_name}</p>
+                            {editingVessel ? (
+                              <input
+                                type="text"
+                                value={editedVesselData.owner_name || ''}
+                                onChange={(e) => handleVesselInputChange('owner_name', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.owner_name}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Contact</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.contact_number || 'N/A'}</p>
+                            {editingVessel ? (
+                              <input
+                                type="tel"
+                                value={editedVesselData.contact_number || ''}
+                                onChange={(e) => handleVesselInputChange('contact_number', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.contact_number || 'N/A'}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Email</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.email || 'N/A'}</p>
+                            {editingVessel ? (
+                              <input
+                                type="email"
+                                value={editedVesselData.email || ''}
+                                onChange={(e) => handleVesselInputChange('email', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.email || 'N/A'}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Address</p>
-                            <p className="text-slate-400 text-sm">{selectedVessel.address || 'N/A'}</p>
+                            {editingVessel ? (
+                              <textarea
+                                value={editedVesselData.address || ''}
+                                onChange={(e) => handleVesselInputChange('address', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 min-h-[60px]"
+                              />
+                            ) : (
+                              <p className="text-slate-400 text-sm">{selectedVessel.address || 'N/A'}</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -457,11 +632,33 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Type</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.vessel_type}</p>
+                            {editingVessel ? (
+                              <select
+                                value={editedVesselData.vessel_type || ''}
+                                onChange={(e) => handleVesselInputChange('vessel_type', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="M - Mechanised">Mechanised</option>
+                                <option value="O - Motorised">Motorised</option>
+                                <option value="D - Deep Sea">Deep Sea</option>
+                              </select>
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.vessel_type}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Engine</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.engine_power || 'N/A'} HP</p>
+                            {editingVessel ? (
+                              <input
+                                type="number"
+                                value={editedVesselData.engine_power || ''}
+                                onChange={(e) => handleVesselInputChange('engine_power', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                                placeholder="HP"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.engine_power || 'N/A'} HP</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Length</p>
@@ -469,15 +666,46 @@ const AdminDashboard = () => {
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Capacity</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.storage_capacity || 'N/A'} kg</p>
+                            {editingVessel ? (
+                              <input
+                                type="number"
+                                value={editedVesselData.storage_capacity || ''}
+                                onChange={(e) => handleVesselInputChange('storage_capacity', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                                placeholder="kg"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.storage_capacity || 'N/A'} kg</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Fuel</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.fuel_type || 'Diesel'}</p>
+                            {editingVessel ? (
+                              <select
+                                value={editedVesselData.fuel_type || 'Diesel'}
+                                onChange={(e) => handleVesselInputChange('fuel_type', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="Diesel">Diesel</option>
+                                <option value="Petrol">Petrol</option>
+                                <option value="Solar Hybrid">Solar Hybrid</option>
+                              </select>
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.fuel_type || 'Diesel'}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Crew</p>
-                            <p className="text-slate-200 font-medium">{selectedVessel.crew_capacity || 'N/A'}</p>
+                            {editingVessel ? (
+                              <input
+                                type="number"
+                                value={editedVesselData.crew_capacity || ''}
+                                onChange={(e) => handleVesselInputChange('crew_capacity', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                              />
+                            ) : (
+                              <p className="text-slate-200 font-medium">{selectedVessel.crew_capacity || 'N/A'}</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -572,8 +800,8 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex font-sans selection:bg-blue-500/30 selection:text-blue-200">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col md:flex-row font-sans selection:bg-blue-500/30 selection:text-blue-200">
+      {/* Sidebar - Hidden on mobile */}
       <aside className="w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800 hidden md:flex flex-col fixed h-full z-20">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -586,6 +814,8 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
+
+        <AdminProfileMini />
 
         <nav className="flex-1 p-4 space-y-2">
           <SidebarItem id="overview" label="Overview" icon={LayoutDashboard} />
@@ -613,19 +843,50 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-8">
+      <main className="flex-1 md:ml-64 p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">
         {/* Mobile Header */}
-        <div className="md:hidden flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-white">BlueOS Admin</h1>
-          <button onClick={handleLogout} className="p-2 text-slate-400">
-            <LogOut className="w-6 h-6" />
+        <div className="md:hidden flex justify-between items-center mb-6 sticky top-0 bg-slate-950/90 backdrop-blur-lg -mx-4 px-4 py-3 z-10 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-1.5 rounded-lg">
+              <Anchor className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="text-lg font-bold text-white">BlueOS Admin</h1>
+          </div>
+          <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-400">
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 z-20 px-2 py-2 pb-safe">
+          <div className="flex justify-around items-center">
+            <button onClick={() => setActiveView('overview')} className={`mobile-nav-item ${activeView === 'overview' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
+              <LayoutDashboard className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Overview</span>
+            </button>
+            <button onClick={() => setActiveView('vessels')} className={`mobile-nav-item ${activeView === 'vessels' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
+              <Ship className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Vessels</span>
+            </button>
+            <button onClick={() => setActiveView('trips')} className={`mobile-nav-item ${activeView === 'trips' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
+              <Anchor className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Trips</span>
+            </button>
+            <button onClick={() => setActiveView('users')} className={`mobile-nav-item ${activeView === 'users' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
+              <Users className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Users</span>
+            </button>
+            <button onClick={() => navigate('/qr-generator')} className="mobile-nav-item text-slate-400">
+              <QrCode className="w-5 h-5" />
+              <span className="text-[10px] font-medium">QR</span>
+            </button>
+          </div>
+        </div>
+
         {activeView === 'overview' && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
+          <div className="space-y-6 lg:space-y-8 animate-fade-in">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard Overview</h2>
               <button 
                 onClick={loadDashboardData} 
                 className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-2"
@@ -635,7 +896,7 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
               <StatCard title="Total Vessels" value={stats.vessels} icon={Ship} color="bg-blue-500" />
               <StatCard title="Active Trips" value={stats.trips} icon={Anchor} color="bg-emerald-500" />
               <StatCard title="Species Logged" value={stats.species} icon={Fish} color="bg-violet-500" />
@@ -816,18 +1077,23 @@ const AdminDashboard = () => {
                       <td className="px-6 py-4 font-medium text-slate-200">{trip.vessel_name}</td>
                       <td className="px-6 py-4 text-slate-400">{trip.fishing_method}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          trip.status === 'active' 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                            : trip.status === 'pending'
-                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700'
-                        }`}>
-                          {trip.status === 'active' ? 'Active' : trip.status === 'pending' ? 'Pending' : trip.status}
-                        </span>
+                        {(() => {
+                          const isPending = trip.trip_code?.startsWith('REQ-') || trip.status === 'pending';
+                          return (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              !isPending && trip.status === 'active' 
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                : isPending
+                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}>
+                              {isPending ? 'Pending Approval' : trip.status === 'active' ? 'Active' : trip.status}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 flex items-center gap-3">
-                        {trip.status === 'pending' && (
+                        {(trip.trip_code?.startsWith('REQ-') || trip.status === 'pending') && (
                             <button 
                               onClick={() => handleApproveTrip(trip.id)}
                               className="text-emerald-400 hover:text-emerald-300 text-sm font-medium flex items-center gap-1"
@@ -890,7 +1156,7 @@ const AdminDashboard = () => {
                         <tr key={reg.id} className="hover:bg-yellow-500/5">
                           <td className="px-4 py-3 font-medium text-white">{reg.owner_name}</td>
                           <td className="px-4 py-3 text-slate-300">{reg.vessel_name}</td>
-                          <td className="px-4 py-3 text-slate-300">{reg.contact_number}</td>
+                          <td className="px-4 py-3 text-slate-300">{reg.contact_info || reg.contact_number || 'N/A'}</td>
                           <td className="px-4 py-3 text-slate-400">{new Date(reg.created_at).toLocaleDateString()}</td>
                           <td className="px-4 py-3 flex gap-2">
                             <button 

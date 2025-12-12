@@ -90,6 +90,12 @@ export const mainAPI = {
   checkTripCode: async (code) => {
     return { success: true, valid: true }; 
   },
+  // QR Generation (Admin)
+  generateQRCodes: async (config) => {
+    // Expects: { qrType, countryCode, landingCentre, year, quantity }
+    const response = await api.post('/qr/generate', config);
+    return response.data;
+  },
   saveTrip: async (tripData) => {
     const response = await api.post('/trips', tripData);
     return response.data;
@@ -243,6 +249,18 @@ export const adminAPI = {
   },
   approveRegistration: async (data) => {
     const response = await api.post('/admin/approve-registration', data);
+    return response.data;
+  },
+  getTripDetails: async (tripId) => {
+    const response = await api.get(`/trips/${tripId}/catch`);
+    return response.data;
+  },
+  rejectRegistration: async (pendingId) => {
+    const response = await api.post('/admin/reject-registration', { pendingId });
+    return response.data;
+  },
+  updateVessel: async (vesselId, data) => {
+    const response = await api.put(`/vessels/${vesselId}`, data);
     return response.data;
   }
 };

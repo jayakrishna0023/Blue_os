@@ -176,6 +176,22 @@ app.post('/api/admin/approve-registration', async (req, res) => {
     }
 });
 
+// Reject Registration
+app.post('/api/admin/reject-registration', async (req, res) => {
+    const { pendingId } = req.body;
+    try {
+        const { error } = await supabase
+            .from('pending_registrations')
+            .update({ status: 'rejected' })
+            .eq('id', pendingId);
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Registration rejected' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Trips
 app.post('/api/trips', async (req, res) => {
     const data = req.body;
@@ -1048,6 +1064,46 @@ app.post('/api/vessels', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, message: 'Registration submitted' });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update Vessel (Admin)
+app.put('/api/vessels/:id', async (req, res) => {
+    const { id } = req.params;
+    const data = req.body;
+    try {
+        const updateData = {
+            vessel_name: data.vessel_name,
+            registration_number: data.registration_number,
+            home_port: data.home_port,
+            vessel_type: data.vessel_type,
+            engine_power: data.engine_power,
+            fuel_type: data.fuel_type,
+            storage_capacity: data.storage_capacity,
+            crew_capacity: data.crew_capacity,
+            owner_name: data.owner_name,
+            contact_number: data.contact_number,
+            email: data.email,
+            address: data.address,
+            license_number: data.license_number
+        };
+
+        // Remove undefined/null values
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key] === undefined) delete updateData[key];
+        });
+
+        const { data: result, error } = await supabase
+            .from('vessels')
+            .update(updateData)
+            .eq('id', id)
+            .select();
+
+        if (error) throw error;
+        res.json({ success: true, message: 'Vessel updated successfully', data: result[0] });
+    } catch (error) {
+        console.error('Vessel update error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

@@ -217,43 +217,43 @@ const WorkerEntry = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
         <button 
           onClick={() => navigate('/worker')}
           className="flex items-center text-slate-500 hover:text-blue-600 transition-colors group"
         >
-          <div className="bg-white p-2 rounded-lg border border-slate-200 mr-3 group-hover:border-blue-200 shadow-sm">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 mr-2 sm:mr-3 group-hover:border-blue-200 shadow-sm">
+            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:-translate-x-1 transition-transform" />
           </div>
-          <span className="font-medium">Back to Dashboard</span>
+          <span className="font-medium text-sm sm:text-base">Back</span>
         </button>
 
-        <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-500">Inspector:</span>
-            <span className="font-bold text-slate-900 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 text-sm">
+            <span className="text-slate-500 hidden sm:inline">Inspector:</span>
+            <span className="font-bold text-slate-900 bg-white px-2 sm:px-3 py-1 rounded-full border border-slate-200 shadow-sm text-xs sm:text-sm truncate max-w-[150px]">
                 {user?.full_name}
             </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Left Column: Main Form */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {/* Trip Selector Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">Active Trip Context</label>
+            <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <label className="block text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider">Active Trip</label>
                     <button onClick={loadData} className="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3" /> Refresh List
+                        <RefreshCw className="w-3 h-3" /> Refresh
                     </button>
                 </div>
                 <select
                     value={selectedTripId}
                     onChange={(e) => setSelectedTripId(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                    className="w-full p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-700 text-sm sm:text-base"
                 >
-                    <option value="">-- Select Trip to Begin --</option>
-                    {trips.length === 0 && <option disabled>No active trips found</option>}
+                    <option value="">-- Select Trip --</option>
+                    {trips.length === 0 && <option disabled>No active trips</option>}
                     {trips.map(trip => (
                     <option key={trip.id} value={trip.id}>
                         {trip.vessel_name} ({trip.trip_code})
@@ -263,16 +263,16 @@ const WorkerEntry = () => {
             </div>
 
             {/* Inspection Form Card */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-                <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                    <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
-                        <Fish className="w-5 h-5 text-blue-600" />
-                        New Inspection Entry
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+                <div className="bg-slate-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h2 className="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-800">
+                        <Fish className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                        <span className="hidden xs:inline">New </span>Inspection
                     </h2>
                     {loading && <span className="text-xs font-bold text-blue-600 animate-pulse">SAVING...</span>}
                 </div>
 
-                <div className="p-6 md:p-8">
+                <div className="p-4 sm:p-6 md:p-8">
                     {message.text && (
                         <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
                         message.type === 'error' 
@@ -286,37 +286,37 @@ const WorkerEntry = () => {
 
                     {/* Scanned Details Card */}
                     {scannedFishDetails && (
-                        <div className="mb-8 bg-blue-50 rounded-xl p-4 border border-blue-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                            <div>
-                                <h4 className="text-blue-900 font-bold text-lg flex items-center gap-2">
-                                    <Fish className="w-5 h-5" />
-                                    {scannedFishDetails.species || 'Unknown Species'}
+                        <div className="mb-6 sm:mb-8 bg-blue-50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-blue-100 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-blue-900 font-bold text-sm sm:text-lg flex items-center gap-2">
+                                    <Fish className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                                    <span className="truncate">{scannedFishDetails.species || 'Unknown Species'}</span>
                                 </h4>
-                                <div className="flex flex-wrap gap-3 mt-2 text-sm text-blue-700">
+                                <div className="flex flex-wrap gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-xs sm:text-sm text-blue-700">
                                     <span className="flex items-center gap-1"><Box className="w-3 h-3" /> {scannedFishDetails.vessel || 'Unknown Vessel'}</span>
                                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {scannedFishDetails.date}</span>
-                                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {scannedFishDetails.location}</span>
+                                    <span className="flex items-center gap-1 hidden sm:flex"><MapPin className="w-3 h-3" /> {scannedFishDetails.location}</span>
                                 </div>
                             </div>
-                            <div className="bg-white px-3 py-1 rounded-lg border border-blue-200 text-blue-800 text-xs font-mono">
+                            <div className="bg-white px-2 sm:px-3 py-1 rounded-lg border border-blue-200 text-blue-800 text-[10px] sm:text-xs font-mono">
                                 {scannedFishDetails.tripCode || 'NO TRIP'}
                             </div>
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-8">
+                    <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
                         {/* QR Code Section */}
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">Fish Tag Identification</label>
-                            <div className="flex gap-3">
+                        <div className="bg-slate-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-slate-200">
+                            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-2">Fish Tag ID</label>
+                            <div className="flex gap-2 sm:gap-3">
                                 <div className="relative flex-1">
-                                    <QrCode className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                                    <QrCode className="absolute left-2.5 sm:left-3 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
                                     <input
                                         type="text"
                                         value={formData.qrCode}
                                         onChange={(e) => setFormData(prev => ({ ...prev, qrCode: e.target.value }))}
-                                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-lg"
-                                        placeholder="Scan QR code..."
+                                        className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm sm:text-lg"
+                                        placeholder="Scan QR..."
                                         required
                                         autoFocus
                                     />
@@ -324,15 +324,15 @@ const WorkerEntry = () => {
                                 <button
                                     type="button"
                                     onClick={() => setIsScannerOpen(true)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-medium transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-colors shadow-md hover:shadow-lg flex items-center gap-1 sm:gap-2 touch-target"
                                 >
-                                    <QrCode className="w-5 h-5" />
-                                    Scan
+                                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    <span className="hidden sm:inline">Scan</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             {/* Weight */}
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
@@ -373,15 +373,15 @@ const WorkerEntry = () => {
 
                         {/* Quality Grade */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-3">Quality Grade</label>
-                            <div className="grid grid-cols-3 gap-4">
+                            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2 sm:mb-3">Quality Grade</label>
+                            <div className="grid grid-cols-3 gap-2 sm:gap-4">
                                 {['A', 'B', 'C'].map((grade) => (
                                 <button
                                     key={grade}
                                     type="button"
                                     onClick={() => setFormData(prev => ({ ...prev, qualityGrade: grade }))}
                                     className={`
-                                    relative overflow-hidden py-4 rounded-xl font-bold text-2xl transition-all duration-200
+                                    relative overflow-hidden py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold text-xl sm:text-2xl transition-all duration-200 touch-target
                                     ${formData.qualityGrade === grade 
                                         ? grade === 'A' ? 'bg-green-500 text-white shadow-green-200 shadow-lg scale-105' :
                                         grade === 'B' ? 'bg-yellow-500 text-white shadow-yellow-200 shadow-lg scale-105' :
@@ -391,8 +391,8 @@ const WorkerEntry = () => {
                                 >
                                     {grade}
                                     {formData.qualityGrade === grade && (
-                                        <div className="absolute top-2 right-2">
-                                            <CheckCircle className="w-4 h-4 text-white/80" />
+                                        <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
+                                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white/80" />
                                         </div>
                                     )}
                                 </button>
@@ -402,15 +402,15 @@ const WorkerEntry = () => {
 
                         {/* Freshness */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-3">Freshness Grade</label>
-                            <div className="flex flex-wrap gap-3">
+                            <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-2 sm:mb-3">Freshness</label>
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
                                 {['Excellent', 'Good', 'Fair', 'Poor'].map((grade) => (
                                 <button
                                     key={grade}
                                     type="button"
                                     onClick={() => setFormData(prev => ({ ...prev, freshness: grade }))}
                                     className={`
-                                    flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all border
+                                    sm:flex-1 py-2 px-3 sm:px-4 rounded-lg font-medium text-xs sm:text-sm transition-all border touch-target
                                     ${formData.freshness === grade 
                                         ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'}
@@ -436,10 +436,10 @@ const WorkerEntry = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 sm:gap-3 disabled:opacity-70 disabled:cursor-not-allowed touch-target"
                         >
                             {loading ? 'Processing...' : 'Submit Inspection'}
-                            {!loading && <ArrowRight className="w-5 h-5" />}
+                            {!loading && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />}
                         </button>
                     </form>
                 </div>
@@ -448,23 +448,23 @@ const WorkerEntry = () => {
 
         {/* Right Column: Trip Manifest */}
         <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sticky top-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                        <History className="w-5 h-5 text-slate-400" />
-                        Trip Manifest
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 lg:sticky lg:top-6 max-h-[50vh] lg:max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <History className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                        Manifest
                     </h3>
-                    <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                        {tripManifest.pending.length + tripManifest.inspected.length} Items
+                    <span className="text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+                        {tripManifest.pending.length + tripManifest.inspected.length}
                     </span>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-2 mb-4">
-                    <div className="flex-1 text-center py-2 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg border border-blue-100">
+                <div className="flex gap-2 mb-3 sm:mb-4">
+                    <div className="flex-1 text-center py-1.5 sm:py-2 bg-blue-50 text-blue-700 font-bold text-[10px] sm:text-xs rounded-lg border border-blue-100">
                         Pending ({tripManifest.pending.length})
                     </div>
-                    <div className="flex-1 text-center py-2 bg-green-50 text-green-700 font-bold text-xs rounded-lg border border-green-100">
+                    <div className="flex-1 text-center py-1.5 sm:py-2 bg-green-50 text-green-700 font-bold text-[10px] sm:text-xs rounded-lg border border-green-100">
                         Done ({tripManifest.inspected.length})
                     </div>
                 </div>

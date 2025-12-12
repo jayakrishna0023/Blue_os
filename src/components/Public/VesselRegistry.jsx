@@ -116,7 +116,7 @@ const VesselRegistry = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-x-hidden font-sans selection:bg-blue-500/30 selection:text-blue-200">
+    <div className="min-h-screen bg-slate-950 py-6 sm:py-12 px-3 sm:px-6 lg:px-8 relative overflow-x-hidden font-sans selection:bg-blue-500/30 selection:text-blue-200">
       
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
@@ -128,59 +128,59 @@ const VesselRegistry = () => {
       <div className="max-w-4xl mx-auto relative z-10">
         <button 
           onClick={() => navigate('/')}
-          className="flex items-center text-slate-400 hover:text-white mb-8 transition-colors group"
+          className="flex items-center text-slate-400 hover:text-white mb-6 sm:mb-8 transition-colors group touch-target"
         >
-          <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-          Back to Login
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-sm sm:text-base">Back to Login</span>
         </button>
 
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 bg-blue-600/20 rounded-2xl mb-4 border border-blue-500/30 backdrop-blur-md">
-             <Waves className="w-8 h-8 text-blue-400" />
+        <div className="text-center mb-6 sm:mb-10">
+          <div className="inline-flex items-center justify-center p-2 sm:p-3 bg-blue-600/20 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 border border-blue-500/30 backdrop-blur-md">
+             <Waves className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
           </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">Vessel Registry</h1>
-          <p className="text-slate-400 mt-2 text-lg">Register your vessel with the BlueOS Platform</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight">Vessel Registry</h1>
+          <p className="text-slate-400 mt-1 sm:mt-2 text-sm sm:text-lg">Register your vessel with the BlueOS Platform</p>
         </div>
 
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl shadow-2xl">
           {error && (
-            <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-2 text-sm">
-              <AlertCircle className="w-5 h-5" />
+            <div className="mb-4 sm:mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-3 sm:p-4 rounded-xl flex items-center gap-2 text-xs sm:text-sm">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             {/* Step 1: Owner Details */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-bold flex items-center gap-3 text-white border-b border-slate-800 pb-4">
-                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-                    <User className="w-5 h-5" />
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 sm:gap-3 text-white border-b border-slate-800 pb-3 sm:pb-4">
+                <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 Owner Details
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Full Name</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-400 mb-1.5 sm:mb-2">Full Name</label>
                   <input
                     type="text"
                     name="ownerName"
                     value={formData.ownerName}
                     onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     placeholder="Enter owner's full name"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Contact Number</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-400 mb-1.5 sm:mb-2">Contact Number</label>
                   <input
                     type="tel"
                     name="contactNumber"
                     value={formData.contactNumber}
                     onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"
                     placeholder="+91 98765 43210"
                     required
                   />
@@ -230,15 +230,15 @@ const VesselRegistry = () => {
             </div>
 
             {/* Step 2: Vessel Details */}
-            <div className="space-y-6 pt-6">
-              <h3 className="text-xl font-bold flex items-center gap-3 text-white border-b border-slate-800 pb-4">
-                <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
-                    <Ship className="w-5 h-5" />
+            <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-6">
+              <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 sm:gap-3 text-white border-b border-slate-800 pb-3 sm:pb-4">
+                <div className="p-1.5 sm:p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                    <Ship className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 Vessel Details
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-2">Vessel Name</label>
                   <input
@@ -382,21 +382,21 @@ const VesselRegistry = () => {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-800">
+            <div className="pt-4 sm:pt-6 border-t border-slate-800">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl font-bold text-lg shadow-lg shadow-blue-900/20 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg shadow-blue-900/20 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-target"
               >
                 {loading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Submitting...
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-sm sm:text-base">Submitting...</span>
                   </>
                 ) : (
                   <>
-                    Submit Registration
-                    <CheckCircle className="w-5 h-5" />
+                    <span className="text-sm sm:text-base">Submit Registration</span>
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                   </>
                 )}
               </button>

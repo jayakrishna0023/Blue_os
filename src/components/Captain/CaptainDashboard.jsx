@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI, mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
-import { Ship, Fish, Package, FileText, LogOut, Menu, X } from 'lucide-react';
+import { Ship, Fish, Package, FileText, LogOut, Menu, X, User } from 'lucide-react';
 import TripRegistration from './TripRegistration';
 import SpeciesEntry from './SpeciesEntry';
 import TripHistory from './TripHistory';
 import TripSummary from './TripSummary';
+import UserProfileCard from '../Shared/UserProfileCard';
 
 const CaptainDashboard = () => {
   const [activeTab, setActiveTab] = useState('trip');
@@ -41,6 +42,7 @@ const CaptainDashboard = () => {
   };
 
   const tabs = [
+    { id: 'profile', label: 'My Profile', icon: User },
     { id: 'trip', label: 'Trip Details', icon: Ship },
     { id: 'species', label: 'Catch Log', icon: Fish, disabled: !currentTrip },
     { id: 'history', label: 'Trip History', icon: FileText },
@@ -51,15 +53,15 @@ const CaptainDashboard = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-ocean-600 p-2 rounded-lg">
-                <Ship className="w-6 h-6 text-white" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-ocean-600 p-1.5 sm:p-2 rounded-lg">
+                <Ship className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Captain's Log</h1>
-                <p className="text-xs text-slate-500">Welcome, {user?.full_name || 'Captain'}</p>
+                <h1 className="text-base sm:text-xl font-bold text-slate-900">Captain's Log</h1>
+                <p className="text-[10px] sm:text-xs text-slate-500 hidden xs:block">Welcome, {user?.full_name || 'Captain'}</p>
               </div>
             </div>
 
@@ -105,54 +107,47 @@ const CaptainDashboard = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-white">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (!tab.disabled) {
-                      setActiveTab(tab.id);
-                      setIsMobileMenuOpen(false);
-                    }
-                  }}
-                  disabled={tab.disabled}
-                  className={`
-                    w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium
-                    ${activeTab === tab.id 
-                      ? 'bg-ocean-50 text-ocean-700' 
-                      : tab.disabled 
-                        ? 'text-slate-300' 
-                        : 'text-slate-600 hover:bg-slate-50'}
-                  `}
-                >
-                  <tab.icon className="w-5 h-5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 px-1 py-1.5 pb-safe">
+          <div className="flex justify-around items-center">
+            {tabs.slice(0, 5).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                disabled={tab.disabled}
+                className={`
+                  flex flex-col items-center justify-center gap-0.5 p-1.5 rounded-lg min-w-[50px] transition-all
+                  ${activeTab === tab.id 
+                    ? 'text-ocean-600 bg-ocean-50' 
+                    : tab.disabled 
+                      ? 'text-slate-300' 
+                      : 'text-slate-500'}
+                `}
+              >
+                <tab.icon className="w-5 h-5" />
+                <span className="text-[9px] font-medium truncate max-w-[50px]">{tab.label.split(' ')[0]}</span>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-3 sm:p-4 lg:p-8 pb-20 md:pb-8">
         {currentTrip && (
-          <div className="mb-6 bg-ocean-900 text-white p-4 rounded-xl shadow-lg flex justify-between items-center flex-wrap gap-4">
+          <div className="mb-4 sm:mb-6 bg-ocean-900 text-white p-3 sm:p-4 rounded-xl shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
             <div>
-              <p className="text-ocean-200 text-xs uppercase tracking-wider font-semibold">Current Trip</p>
-              <p className="font-mono text-lg font-bold">{currentTrip.tripCode}</p>
+              <p className="text-ocean-200 text-[10px] sm:text-xs uppercase tracking-wider font-semibold">Current Trip</p>
+              <p className="font-mono text-sm sm:text-lg font-bold truncate max-w-[200px] sm:max-w-none">{currentTrip.tripCode}</p>
             </div>
-            <div className="flex gap-4 text-sm">
+            <div className="flex gap-4 text-xs sm:text-sm">
               <div>
-                <p className="text-ocean-200 text-xs">Vessel</p>
-                <p className="font-medium">{user?.vessel_name || 'Unknown'}</p>
+                <p className="text-ocean-200 text-[10px] sm:text-xs">Vessel</p>
+                <p className="font-medium truncate max-w-[80px] sm:max-w-none">{user?.vessel_name || 'Unknown'}</p>
               </div>
               <div>
-                <p className="text-ocean-200 text-xs">Status</p>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-300 border border-green-500/30">
+                <p className="text-ocean-200 text-[10px] sm:text-xs">Status</p>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-green-500/20 text-green-300 border border-green-500/30">
                   Active
                 </span>
               </div>
@@ -161,6 +156,11 @@ const CaptainDashboard = () => {
         )}
 
         <div className="animate-fade-in">
+          {activeTab === 'profile' && (
+            <div className="max-w-lg mx-auto">
+              <UserProfileCard user={user} />
+            </div>
+          )}
           {activeTab === 'trip' && (
             <TripRegistration 
               onTripCreated={handleTripCreated} 
