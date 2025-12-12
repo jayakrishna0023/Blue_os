@@ -27,7 +27,10 @@ const FisherRegistration = ({ mobile, onComplete }) => {
     setError('');
 
     try {
+      console.log('Submitting Registration:', formData);
       const response = await authAPI.registerFisher(formData);
+      console.log('Registration Response:', response);
+      
       if (response.success) {
         if (onComplete) onComplete();
         else navigate('/fisher');
@@ -35,7 +38,8 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         setError(response.message || 'Registration failed');
       }
     } catch (err) {
-      setError('Network error during registration');
+      console.error('Registration Error:', err);
+      setError('Network error during registration. Please check console.');
     } finally {
       setLoading(false);
     }

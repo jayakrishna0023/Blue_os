@@ -1,7 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
-import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship } from 'lucide-react';
+import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship, RefreshCw } from 'lucide-react';
 import FisherRegistration from './FisherRegistration';
 
 const Login = () => {
@@ -20,39 +20,64 @@ const Login = () => {
   
   const navigate = useNavigate();
 
+  // Clear any stale state on mount
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      console.log('Found existing user session:', user);
+    }
+  }, []);
+
+  const handleClearSession = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
+
   const handleSendOtp = (e) => {
     e.preventDefault();
     if (mobile.length < 10) {
-      setError('Please enter a valid mobile number');
+      setError('Please enter a valid mobile number (10 digits)');
       return;
     }
     // Mock OTP send
     setShowOtp(true);
     setError('');
-    alert('Mock OTP for : 1234');
+    setLoading(true);
+    setTimeout(() => {
+        setLoading(false);
+        alert('Your OTP is: 1234');
+    }, 1000);
   };
 
   const handleFisherLogin = async (e) => {
     e.preventDefault();
     if (otp !== '1234') {
-      setError('Invalid OTP');
+      setError('Invalid OTP. Please enter 1234.');
       return;
     }
     
     setLoading(true);
+    setError('');
+    
     try {
+      console.log('Attempting Fisher Login with:', mobile);
       const response = await authAPI.fisherLogin(mobile);
+      console.log('Fisher Login Response:', response);
+
       if (response.success) {
         if (response.isNewUser) {
+          console.log('User is new, showing registration...');
           setShowRegistration(true);
         } else {
+          console.log('User exists, navigating to dashboard...');
           navigate('/fisher');
         }
       } else {
-        setError(response.message);
+        setError(response.message || 'Login failed. Please try again.');
       }
     } catch (err) {
-      setError('Login failed');
+      console.error('Fisher Login Error:', err);
+      setError('Connection failed. Please check if the server is running.');
     } finally {
       setLoading(false);
     }
@@ -64,14 +89,19 @@ const Login = () => {
     setLoading(true);
 
     try {
+      console.log('Attempting Vessel/Admin Login:', username);
       const response = await authAPI.login(username, password);
+      console.log('Login Response:', response);
+
       if (response.success && response.user) {
         const role = response.user.role;
+        console.log('User Role:', role);
+        
         if (role === 'admin') navigate('/admin');
         else if (role === 'captain' || role === 'vessel_owner') navigate('/captain');
         else if (role === 'worker') navigate('/worker');
         else if (role === 'inspector') navigate('/inspector');
-        else setError('Unknown user role');
+        else setError(`Unknown user role: ${role}`);
       } else {
         setError(response.message || 'Invalid credentials');
       }
@@ -98,13 +128,24 @@ const Login = () => {
       </div>
 
       <div className="w-full max-w-md z-10 relative">
-        <button 
-          onClick={() => navigate('/')}
-          className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-          Back to Home
-        </button>
+        <div className="flex justify-between items-center mb-8">
+            <button 
+            onClick={() => navigate('/')}
+            className="flex items-center text-slate-400 hover:text-white transition-colors group"
+            >
+            <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+            Back to Home
+            </button>
+
+            <button 
+            onClick={handleClearSession}
+            className="flex items-center text-xs text-slate-500 hover:text-red-400 transition-colors"
+            title="Clear Session Data"
+            >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Reset
+            </button>
+        </div>
 
         <div className="text-center mb-8 animate-fade-in">
           <div className="inline-flex items-center justify-center p-4 bg-blue-600/20 rounded-2xl mb-6 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/20">
@@ -169,7 +210,7 @@ const Login = () => {
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 text-white px-12 py-3.5 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600"
-                      placeholder="Enter OTP"
+                      placeholder="Enter OTP (1234)"
                       required
                     />
                   </div>
