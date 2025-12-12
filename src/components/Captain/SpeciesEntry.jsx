@@ -91,6 +91,7 @@ const SpeciesEntry = ({ trip }) => {
       const promises = speciesList.flatMap(entry => 
         entry.qrCodes.map(qr => 
           mainAPI.saveSpecies({
+            tripId: trip.id,
             qr: qr,
             species: entry.speciesName,
             images: entry.images,
@@ -99,7 +100,6 @@ const SpeciesEntry = ({ trip }) => {
             locationName: location.name,
             userId: user?.id,
             catchSessionId: catchSessionId,
-            tripId: trip.id,
             timestamp: entry.timestamp
           })
         )

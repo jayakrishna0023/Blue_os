@@ -1,24 +1,25 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { mainAPI } from '../../services/api';
 import { generateTripCode, getCurrentUser } from '../../services/utils';
-import { Ship, Calendar, MapPin, Users, Fuel, Snowflake, DollarSign, AlertCircle, Camera, Fish } from 'lucide-react';
+import { FISHING_METHODS, PORTS, TARGET_SPECIES } from '../../services/constants';
+import { Ship, Calendar, MapPin, Users, Fuel, Snowflake, DollarSign, AlertCircle, Camera, Fish, QrCode, Trash2, CheckCircle } from 'lucide-react';
+import QRScannerModal from '../Shared/QRScannerModal';
+import CameraModal from '../Shared/CameraModal';
 
 const TripRegistration = ({ onTripCreated, existingTrip }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [activeCameraField, setActiveCameraField] = useState(null); // 'vesselImage' or 'gearImage'
+  const [crewList, setCrewList] = useState([]); // Array of { id, name, mobile }
+
   const [formData, setFormData] = useState({
     tripCode: '',
-    fishingMethod: 'Trawling',
-    departurePort: 'Chennai',
+    fishingMethod: '',
+    departurePort: '',
     tripStart: new Date().toISOString().slice(0, 16),
     expectedReturn: '',
-    crewMembers: '',
-    fuelLiters: '',
-    fuelPrice: '',
-    iceKg: '',
-    icePrice: '',
-    foodBudget: '',
-    otherExpenses: '',
     targetSpecies: '',
     vesselImage: null,
     gearImage: null
@@ -27,10 +28,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
   useEffect(() => {
     if (existingTrip) {
       setFormData(prev => ({ ...prev, ...existingTrip }));
-    } else {
-      generateTripCode().then(code => {
-        setFormData(prev => ({ ...prev, tripCode: code }));
-      });
+      // Note: If we had crew data in existingTrip, we would populate crewList here
     }
   }, [existingTrip]);
 
@@ -39,15 +37,43 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    if (files && files[0]) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, [name]: reader.result }));
-      };
-      reader.readAsDataURL(files[0]);
+  // Removed handleFileChange as we are now forcing camera capture
+
+  const openCamera = (field) => {
+    setActiveCameraField(field);
+    setShowCamera(true);
+  };
+
+  const handleCapture = (imageSrc) => {
+    if (activeCameraField) {
+      setFormData(prev => ({ ...prev, [activeCameraField]: imageSrc }));
     }
+    setShowCamera(false);
+    setActiveCameraField(null);
+  };
+
+  const handleScan = (data) => {
+    if (data) {
+      // Expected format: FISHER-{MOBILE}-{RANDOM}
+      // In a real app, we would fetch the fisher details from the API using this ID/Code
+      // For now, we'll parse it or just use it as ID
+      
+      // Check if already added
+      if (crewList.some(c => c.id === data)) {
+        alert('Crew member already added!');
+        return;
+      }
+
+      // Mocking name lookup based on QR
+      const mockName = `Fisher ${data.slice(-4)}`;
+      
+      setCrewList(prev => [...prev, { id: data, name: mockName, scannedAt: new Date() }]);
+      setShowScanner(false);
+    }
+  };
+
+  const removeCrew = (id) => {
+    setCrewList(prev => prev.filter(c => c.id !== id));
   };
 
   const handleSubmit = async (e) => {
@@ -55,19 +81,23 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
     setLoading(true);
     setError('');
 
+    // Validation: Ensure images are captured
+    if (!formData.vesselImage) {
+        setError('Vessel image is required. Please capture a photo.');
+        return;
+    }
+    if (!formData.gearImage) {
+        setError('Gear image is required. Please capture a photo.');
+        return;
+    }
+
     try {
       const user = getCurrentUser();
       
-      const totalExpenses = (
-        (parseFloat(formData.fuelLiters || 0) * parseFloat(formData.fuelPrice || 0)) +
-        (parseFloat(formData.iceKg || 0) * parseFloat(formData.icePrice || 0)) +
-        parseFloat(formData.foodBudget || 0) +
-        parseFloat(formData.otherExpenses || 0)
-      ).toFixed(2);
-
       const tripData = {
         ...formData,
-        totalExpenses,
+        crewMembers: crewList.length, // Auto-calculate count
+        crewIds: crewList.map(c => c.id), // Send IDs to backend
         vesselName: user?.vesselName || 'Unknown Vessel',
         vesselId: user?.vessel_id,
         vesselOwnerId: user?.owner_id
@@ -87,22 +117,30 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
     }
   };
 
+  const user = getCurrentUser();
+
   if (existingTrip) {
     return (
       <div className="glass-card p-6 text-center">
         <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
           <Ship className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Trip in Progress</h2>
-        <p className="text-slate-500 mb-6">You have an active trip. Go to the Catch Log tab to record species.</p>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Trip Status</h2>
+        <p className="text-slate-500 mb-6">
+            {existingTrip.status === 'active' 
+                ? 'You have an active trip. Go to the Catch Log tab to record species.' 
+                : 'Your trip is pending verification by a coordinator.'}
+        </p>
         <div className="grid grid-cols-2 gap-4 text-left max-w-md mx-auto bg-slate-50 p-4 rounded-xl">
           <div>
             <p className="text-xs text-slate-400">Trip Code</p>
-            <p className="font-mono font-medium">{existingTrip.tripCode}</p>
+            <p className="font-mono font-medium">{existingTrip.trip_code || 'Pending'}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Start Date</p>
-            <p className="font-medium">{new Date(existingTrip.tripStart).toLocaleDateString()}</p>
+            <p className="text-xs text-slate-400">Status</p>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${existingTrip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {existingTrip.status === 'active' ? 'Active' : 'Pending Approval'}
+            </span>
           </div>
         </div>
       </div>
@@ -118,7 +156,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-900">New Trip Registration</h2>
-            <p className="text-sm text-slate-500">Enter details before departure</p>
+            <p className="text-sm text-slate-500">Enter details for verification</p>
           </div>
         </div>
 
@@ -130,6 +168,19 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Trip Code Display - Now Pending */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Trip Code</label>
+              <div className="text-lg font-mono font-bold text-slate-400 mt-1">
+                Pending Verification
+              </div>
+            </div>
+            <div className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">
+              DRAFT
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Trip Code (Read Only) */}
             <div className="col-span-full">
@@ -154,10 +205,10 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                 onChange={handleChange}
                 className="input-field"
               >
-                <option value="Trawling">Trawling</option>
-                <option value="Gillnetting">Gillnetting</option>
-                <option value="Longlining">Longlining</option>
-                <option value="Purse Seining">Purse Seining</option>
+                <option value="">Select Method</option>
+                {FISHING_METHODS.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
               </select>
             </div>
 
@@ -166,14 +217,17 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
               <label className="block text-sm font-medium text-slate-700 mb-1">Target Species</label>
               <div className="relative">
                 <Fish className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
+                <select
                   name="targetSpecies"
                   value={formData.targetSpecies}
                   onChange={handleChange}
                   className="input-field pl-10"
-                  placeholder="e.g. Tuna, Shrimp"
-                />
+                >
+                  <option value="">Select Species</option>
+                  {TARGET_SPECIES.map(species => (
+                    <option key={species} value={species}>{species}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -188,11 +242,10 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                   onChange={handleChange}
                   className="input-field pl-10"
                 >
-                  <option value="Chennai">Chennai</option>
-                  <option value="Nagapattinam">Nagapattinam</option>
-                  <option value="Thuthookudi">Thuthookudi</option>
-                  <option value="Ramanathapuram">Ramanathapuram</option>
-                  <option value="Kanyakumari">Kanyakumari</option>
+                  <option value="">Select Port</option>
+                  {PORTS.map(port => (
+                    <option key={port} value={port}>{port}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -228,163 +281,152 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
               </div>
             </div>
 
-            {/* Resources */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Crew Members</label>
-              <div className="relative">
-                <Users className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="number"
-                  name="crewMembers"
-                  value={formData.crewMembers}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="Count"
-                  required
-                />
+            {/* Crew Management (Replaces simple count) */}
+            <div className="col-span-full bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-bold text-slate-700">Crew Members ({crewList.length})</label>
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Scan Crew QR
+                </button>
               </div>
-            </div>
 
-            {/* Fuel */}
-            <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Fuel (Liters)</label>
-                  <div className="relative">
-                    <Fuel className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                    <input
-                      type="number"
-                      name="fuelLiters"
-                      value={formData.fuelLiters}
-                      onChange={handleChange}
-                      className="input-field pl-10"
-                      placeholder="Qty"
-                      required
-                    />
-                  </div>
+              {crewList.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg">
+                  No crew members added yet. Scan their QR codes to add them to the trip.
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Price/L</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                    <input
-                      type="number"
-                      name="fuelPrice"
-                      value={formData.fuelPrice}
-                      onChange={handleChange}
-                      className="input-field pl-10"
-                      placeholder="₹"
-                    />
-                  </div>
+              ) : (
+                <div className="space-y-2">
+                  {crewList.map((crew) => (
+                    <div key={crew.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                          <Users className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{crew.name}</p>
+                          <p className="text-xs text-slate-500 font-mono">{crew.id}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCrew(crew.id)}
+                        className="text-red-400 hover:text-red-600 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
+              )}
             </div>
 
-            {/* Ice */}
-            <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Ice (Kg)</label>
-                  <div className="relative">
-                    <Snowflake className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                    <input
-                      type="number"
-                      name="iceKg"
-                      value={formData.iceKg}
-                      onChange={handleChange}
-                      className="input-field pl-10"
-                      placeholder="Qty"
-                      required
-                    />
-                  </div>
+            {/* Images - Replaced with Real-Time Capture */}
+            <div className="col-span-full space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Verification Photos</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Vessel Image */}
+                <div 
+                    onClick={() => openCamera('vesselImage')}
+                    className={`relative h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group `}
+                >
+                    {formData.vesselImage ? (
+                        <>
+                            <img src={formData.vesselImage} alt="Vessel" className="absolute inset-0 w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white">
+                                    <Camera className="w-6 h-6" />
+                                </div>
+                            </div>
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center shadow-lg">
+                                <CheckCircle className="w-3 h-3 mr-1" /> Captured
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-blue-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                                <Camera className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">Capture Vessel</p>
+                            <p className="text-xs text-slate-400 mt-1">Tap to open camera</p>
+                        </>
+                    )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Price/Kg</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                    <input
-                      type="number"
-                      name="icePrice"
-                      value={formData.icePrice}
-                      onChange={handleChange}
-                      className="input-field pl-10"
-                      placeholder="₹"
-                    />
-                  </div>
+
+                {/* Gear Image */}
+                <div 
+                    onClick={() => openCamera('gearImage')}
+                    className={`relative h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group`}
+                >
+                    {formData.gearImage ? (
+                        <>
+                            <img src={formData.gearImage} alt="Gear" className="absolute inset-0 w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white">
+                                    <Camera className="w-6 h-6" />
+                                </div>
+                            </div>
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center shadow-lg">
+                                <CheckCircle className="w-3 h-3 mr-1" /> Captured
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-blue-100 p-4 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                                <Camera className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <p className="text-sm font-medium text-slate-600">Capture Gear</p>
+                            <p className="text-xs text-slate-400 mt-1">Tap to open camera</p>
+                        </>
+                    )}
                 </div>
-            </div>
-
-            {/* Expenses */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Food Budget (₹)</label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="number"
-                  name="foodBudget"
-                  value={formData.foodBudget}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="0"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Other Expenses (₹)</label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="number"
-                  name="otherExpenses"
-                  value={formData.otherExpenses}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            {/* Images */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Vessel Image</label>
-              <div className="relative">
-                <Camera className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="file"
-                  name="vesselImage"
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="input-field pl-10 pt-2"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Gear Image</label>
-              <div className="relative">
-                <Camera className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                <input
-                  type="file"
-                  name="gearImage"
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="input-field pl-10 pt-2"
-                />
               </div>
             </div>
           </div>
 
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary flex items-center justify-center gap-2"
-            >
-              {loading ? 'Starting Trip...' : 'Start Trip'}
-              {!loading && <Ship className="w-5 h-5" />}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-ocean-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? 'Submitting...' : (
+              <>
+                <Ship className="w-5 h-5" />
+                Submit Trip Request
+              </>
+            )}
+          </button>
         </form>
       </div>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScannerModal
+          isOpen={showScanner}
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+          title="Scan Crew Member QR"
+        />
+      )}
+
+      {/* Camera Modal for Real-Time Capture */}
+      {showCamera && (
+        <CameraModal
+            isOpen={showCamera}
+            onClose={() => setShowCamera(false)}
+            onCapture={handleCapture}
+            title={activeCameraField === 'vesselImage' ? 'Capture Vessel' : 'Capture Gear'}
+            metadata={{
+                vesselCode: user?.vesselName || 'Unknown',
+                purpose: 'Trip Registration'
+            }}
+        />
+      )}
     </div>
   );
 };

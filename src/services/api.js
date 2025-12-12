@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 // Use relative path '/api' to trigger the Vite proxy
 const API_URL = '/api';
@@ -27,6 +27,32 @@ export const authAPI = {
   logout: () => {
     localStorage.removeItem('user');
     window.location.href = '/';
+  },
+  fisherLogin: async (mobile) => {
+    const response = await api.post('/auth/fisher/login', { mobile });
+    if (response.data.success && !response.data.isNewUser) {
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+    }
+    return response.data;
+  },
+  registerFisher: async (data) => {
+    const response = await api.post('/fishers', data);
+    if (response.data.success) {
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+    }
+    return response.data;
+  }
+};
+
+// Fisher API
+export const fisherAPI = {
+  getTrips: async (fisherId) => {
+    const response = await api.get(`/fishers/${fisherId}/trips`);
+    return response.data;
+  },
+  getProfileByQR: async (qrCode) => {
+    const response = await api.get(`/fishers/qr/${qrCode}`);
+    return response.data;
   }
 };
 
@@ -40,12 +66,28 @@ export const mainAPI = {
     const response = await api.post('/trips', tripData);
     return response.data;
   },
+  updateTripExpenses: async (data) => {
+    const response = await api.post('/trips/expenses', data);
+    return response.data;
+  },
   getAvailableTrips: async () => {
     const response = await api.get('/trips/active');
     return response.data;
   },
   getTripCatch: async (tripId) => {
     const response = await api.get(`/trips/${tripId}/catch`);
+    return response.data;
+  },
+  getPendingTrips: async () => {
+    const response = await api.get('/trips/pending');
+    return response.data;
+  },
+  approveTrip: async (tripId) => {
+    const response = await api.post('/trips/approve', { tripId });
+    return response.data;
+  },
+  getCaptainTrips: async (vesselName) => {
+    const response = await api.get(`/trips/captain?vessel=${vesselName}`);
     return response.data;
   },
   getLogByQR: async (qrCode) => {
@@ -60,57 +102,27 @@ export const mainAPI = {
         tripId: speciesData.tripId,
         species: speciesData.species,
         weight: speciesData.weight || 0, // Default to 0 if not provided
-        count: speciesData.count || 1,   // Default to 1 per QR
-        gps: {
-            lat: speciesData.latitude,
-            lng: speciesData.longitude
-        },
-        locationName: speciesData.locationName,
-        qrCode: speciesData.qr,
-        images: speciesData.images,
-        catchSessionId: speciesData.catchSessionId,
-        userId: speciesData.userId,
-        timestamp: speciesData.timestamp
+        count: speciesData.count || 1,
+        grade: speciesData.grade || 'B',
+        location: speciesData.location || 'Unknown',
+        image: speciesData.image,
+        tagId: speciesData.tagId
     };
     const response = await api.post('/catch', payload);
     return response.data;
   },
   
-  // Worker specific
-  getCrates: async () => {
-    const response = await api.get('/crates');
+  // Crate Management
+  assignCrate: async (data) => {
+    const response = await api.post('/crates/assign', data);
     return response.data;
   },
-  verifyFishForCrate: async (qrCode) => {
-    const response = await api.post('/crates/verify-fish', { qrCode });
+  getCrate: async (crateId) => {
+    const response = await api.get(`/crates/${crateId}`);
     return response.data;
   },
-  sealCrate: async (tripId, fishQrCodes) => {
-    const response = await api.post('/crates/seal', { tripId, fishQrCodes });
-    return response.data;
-  },
-  inspectCrate: async (crateQr) => {
-    const response = await api.get(`/crates/${crateQr}`);
-    return response.data;
-  },
-  saveFish: async (fishData) => {
-    const response = await api.post('/catch', fishData);
-    return response.data;
-  },
-
-  // QR Generation
-  generateQRCodes: async (params) => {
-    const response = await api.post('/qr/generate', params);
-    return response.data;
-  },
-
-  // Vessel Registry (Public/Shared)
-  getVessels: async () => {
-    const response = await api.get('/vessels');
-    return response.data;
-  },
-  submitVesselRegistration: async (registrationData) => {
-    const response = await api.post('/vessels', registrationData);
+  submitVesselRegistration: async (data) => {
+    const response = await api.post('/vessels', data);
     return response.data;
   }
 };
@@ -118,19 +130,27 @@ export const mainAPI = {
 // Inspector API
 export const inspectorAPI = {
   getTrips: async () => {
-    const response = await api.get('/inspector/trips');
-    return response.data;
-  },
-  getTripCatch: async (tripId) => {
-    const response = await api.get(`/inspector/trip/${tripId}/catch`);
+    const response = await api.get('/trips');
     return response.data;
   },
   getCatchDetails: async (qrCode) => {
-    const response = await api.get(`/trace/${qrCode}`);
+    const response = await api.get(`/catch/qr/${qrCode}`);
     return response.data;
   },
   updateQuality: async (data) => {
-    const response = await api.post('/inspector/quality', data);
+    const response = await api.post('/catch/quality', data);
+    return response.data;
+  },
+  getTripCatch: async (tripId) => {
+    const response = await api.get(`/trips/${tripId}/catch`);
+    return response.data;
+  }
+};
+
+// Public API
+export const publicAPI = {
+  traceCatch: async (qrCode) => {
+    const response = await api.get(`/catch/qr/${qrCode}`);
     return response.data;
   }
 };
@@ -149,34 +169,21 @@ export const adminAPI = {
     const response = await api.get('/trips');
     return response.data;
   },
-  getTripDetails: async (tripId) => {
-    const response = await api.get(`/trips/${tripId}/catch`);
-    return response.data;
-  },
-  getSpecies: async () => {
-    return { success: true, data: [] };
-  },
-  getFish: async () => {
-    return { success: true, data: [] };
-  },
   getPendingRegistrations: async () => {
-    const response = await api.get('/registrations/pending');
-    return response.data;
-  },
-  approveRegistration: async (data) => {
-    const response = await api.post('/registrations/approve', data);
+    // Assuming this endpoint exists or will be created
+    const response = await api.get('/admin/pending-registrations'); 
     return response.data;
   },
   getUsers: async () => {
     const response = await api.get('/users');
     return response.data;
+  },
+  approveTrip: async (tripId) => {
+    const response = await api.post('/trips/approve', { tripId });
+    return response.data;
+  },
+  approveRegistration: async (data) => {
+    const response = await api.post('/admin/approve-registration', data);
+    return response.data;
   }
-};
-
-// Public API (Traceability)
-export const publicAPI = {
-    traceCatch: async (qrCode) => {
-        const response = await api.get(`/trace/${qrCode}`);
-        return response.data;
-    }
 };

@@ -48,7 +48,7 @@ const AdminDashboard = () => {
   const filteredTrips = trips.filter(t => {
     const matchesSearch = (t.trip_code?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                           (t.vessel_name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || t.trip_status === filterStatus;
+    const matchesFilter = filterStatus === 'all' || t.status === filterStatus; // Changed trip_status to status
     return matchesSearch && matchesFilter;
   });
 
@@ -88,6 +88,23 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     authAPI.logout();
+  };
+
+  const handleApproveTrip = async (tripId) => {
+    if (window.confirm('Are you sure you want to approve this trip?')) {
+        try {
+            const response = await adminAPI.approveTrip(tripId);
+            if (response.success) {
+                alert('Trip approved successfully!');
+                loadDashboardData(); // Refresh data
+            } else {
+                alert('Failed to approve trip: ' + response.message);
+            }
+        } catch (error) {
+            console.error('Error approving trip:', error);
+            alert('An error occurred while approving the trip.');
+        }
+    }
   };
 
   const handleApprove = async (pendingId) => {
@@ -773,6 +790,7 @@ const AdminDashboard = () => {
                     >
                         <option value="all">All Status</option>
                         <option value="active">Active</option>
+                        <option value="pending">Pending Approval</option>
                         <option value="completed">Completed</option>
                         <option value="scheduled">Scheduled</option>
                     </select>
@@ -799,19 +817,29 @@ const AdminDashboard = () => {
                       <td className="px-6 py-4 text-slate-400">{trip.fishing_method}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          trip.trip_status === 'active' 
+                          trip.status === 'active' 
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                            : trip.status === 'pending'
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                             : 'bg-slate-800 text-slate-400 border border-slate-700'
                         }`}>
-                          {trip.trip_status}
+                          {trip.status === 'active' ? 'Active' : trip.status === 'pending' ? 'Pending' : trip.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 flex items-center gap-3">
+                        {trip.status === 'pending' && (
+                            <button 
+                              onClick={() => handleApproveTrip(trip.id)}
+                              className="text-emerald-400 hover:text-emerald-300 text-sm font-medium flex items-center gap-1"
+                            >
+                              Approve
+                            </button>
+                        )}
                         <button 
                           onClick={() => handleViewTripDetails(trip)}
                           className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1"
                         >
-                          View Details <ChevronRight className="w-4 h-4" />
+                          Details <ChevronRight className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>

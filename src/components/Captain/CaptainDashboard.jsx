@@ -5,7 +5,7 @@ import { getCurrentUser } from '../../services/utils';
 import { Ship, Fish, Package, FileText, LogOut, Menu, X } from 'lucide-react';
 import TripRegistration from './TripRegistration';
 import SpeciesEntry from './SpeciesEntry';
-import CrateManagement from './CrateManagement';
+import TripHistory from './TripHistory';
 import TripSummary from './TripSummary';
 
 const CaptainDashboard = () => {
@@ -43,7 +43,7 @@ const CaptainDashboard = () => {
   const tabs = [
     { id: 'trip', label: 'Trip Details', icon: Ship },
     { id: 'species', label: 'Catch Log', icon: Fish, disabled: !currentTrip },
-    { id: 'crates', label: 'Crates', icon: Package, disabled: !currentTrip },
+    { id: 'history', label: 'Trip History', icon: FileText },
     { id: 'summary', label: 'Summary', icon: FileText, disabled: !currentTrip },
   ];
 
@@ -172,10 +172,8 @@ const CaptainDashboard = () => {
               trip={currentTrip} 
             />
           )}
-          {activeTab === 'crates' && (
-            <CrateManagement 
-              trip={currentTrip} 
-            />
+          {activeTab === 'history' && (
+            <TripHistory />
           )}
           {activeTab === 'summary' && (
             <TripSummary 

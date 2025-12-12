@@ -6,6 +6,7 @@ import CaptainDashboard from './components/Captain/CaptainDashboard';
 import WorkerDashboard from './components/Worker/WorkerDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import InspectorDashboard from './components/Inspector/InspectorDashboard';
+import FisherDashboard from './components/Fisher/FisherDashboard';
 import Traceability from './components/Public/Traceability';
 import VesselRegistry from './components/Public/VesselRegistry';
 import About from './components/Public/About';
@@ -26,6 +27,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user.role === 'worker') return <Navigate to="/worker" replace />;
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
     if (user.role === 'inspector') return <Navigate to="/inspector" replace />;
+    if (user.role === 'fisher') return <Navigate to="/fisher" replace />;
     return <Navigate to="/login" replace />;
   }
 
@@ -77,6 +79,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['inspector']}>
                 <InspectorDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/fisher/*" 
+            element={
+              <ProtectedRoute allowedRoles={['fisher']}>
+                <FisherDashboard />
               </ProtectedRoute>
             } 
           />

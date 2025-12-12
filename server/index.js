@@ -96,15 +96,103 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// Get Pending Registrations (Admin)
+app.get('/api/admin/pending-registrations', async (req, res) => {
+    try {
+        const { data: pending, error } = await supabase
+            .from('pending_registrations')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, data: pending });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Approve Registration
+app.post('/api/admin/approve-registration', async (req, res) => {
+    const { pendingId, password, adminId } = req.body;
+    
+    try {
+        // 1. Get pending registration
+        const { data: pending, error: fetchError } = await supabase
+            .from('pending_registrations')
+            .select('*')
+            .eq('id', pendingId)
+            .single();
+            
+        if (fetchError || !pending) throw new Error('Registration not found');
+
+        // 2. Create User
+        // Generate username from owner name (simplified)
+        const username = pending.owner_name.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 1000);
+        
+        const { data: newUser, error: userError } = await supabase
+            .from('users')
+            .insert([{
+                username: username,
+                password: password, // In real app, hash this!
+                role: 'captain', // Default to captain/owner
+                full_name: pending.owner_name,
+                vessel_name: pending.vessel_name
+            }])
+            .select()
+            .single();
+            
+        if (userError) throw userError;
+
+        // 3. Create Vessel
+        const { data: newVessel, error: vesselError } = await supabase
+            .from('vessels')
+            .insert([{
+                name: pending.vessel_name,
+                owner_name: pending.owner_name,
+                registration_number: 'REG-' + Math.floor(10000 + Math.random() * 90000),
+                status: 'active'
+            }])
+            .select()
+            .single();
+
+        if (vesselError) {
+            console.error('Vessel creation failed', vesselError);
+        } else {
+            // Update user with vessel_id
+            await supabase.from('users').update({ vessel_id: newVessel.id, owner_id: newUser.id }).eq('id', newUser.id);
+        }
+
+        // 4. Update Pending Status
+        await supabase
+            .from('pending_registrations')
+            .update({ status: 'approved' })
+            .eq('id', pendingId);
+
+        res.json({ success: true, newUser: newUser });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Trips
 app.post('/api/trips', async (req, res) => {
     const data = req.body;
     console.log("Received trip data:", data); // Debug log
 
     try {
+        // Determine status and code
+        // If it's a new request, it's pending and has a temporary code
+        const status = 'pending';
+        const tempCode = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const tripCode = data.tripCode || tempCode;
+
         // Upload images if present
-        const vesselImageUrl = data.vesselImage ? await uploadImage(data.vesselImage, 'catch-images', `trips/${data.tripCode}/vessel.jpg`) : null;
-        const gearImageUrl = data.gearImage ? await uploadImage(data.gearImage, 'catch-images', `trips/${data.tripCode}/gear.jpg`) : null;
+        // Use a safe path that doesn't depend on the final trip code if it's not generated yet
+        const imagePathPrefix = `trips/${tripCode}`;
+        const vesselImageUrl = data.vesselImage ? await uploadImage(data.vesselImage, 'catch-images', `${imagePathPrefix}/vessel.jpg`) : null;
+        const gearImageUrl = data.gearImage ? await uploadImage(data.gearImage, 'catch-images', `${imagePathPrefix}/gear.jpg`) : null;
 
         // Helper to clean numeric inputs
         const toNum = (val) => (val === '' || val === null || val === undefined) ? null : parseFloat(val);
@@ -114,7 +202,7 @@ app.post('/api/trips', async (req, res) => {
         const { data: result, error } = await supabase
             .from('trips')
             .insert([{
-                trip_code: data.tripCode,
+                trip_code: tripCode,
                 vessel_name: data.vesselName || 'Unknown',
                 fishing_method: data.fishingMethod,
                 departure_date: new Date(), // Always set start to now
@@ -131,27 +219,133 @@ app.post('/api/trips', async (req, res) => {
                 expected_return_date: toDate(data.expectedReturn || data.expectedReturnDate), // Handle both key names
                 vessel_image: vesselImageUrl,
                 gear_image: gearImageUrl,
-                status: 'active'
+                status: status
             }])
             .select();
 
         if (error) {
             console.error("Supabase Insert Error:", error);
-            if (error.code === 'PGRST204') {
-                console.error("----------------------------------------------------------------");
-                console.error("CRITICAL SCHEMA ERROR: The database is missing columns.");
-                console.error("Please run the SQL commands in 'UPDATE_TRIPS_TABLE.sql' in your Supabase SQL Editor.");
-                console.error("Then, go to API Settings -> 'Reload Schema Cache' if the issue persists.");
-                console.error("----------------------------------------------------------------");
-            }
             throw error;
         }
+
+        const newTripId = result[0].id;
+
+        // Handle Crew List (New Feature)
+        if (data.crewIds && Array.isArray(data.crewIds) && data.crewIds.length > 0) {
+            const crewInserts = data.crewIds.map(fisherId => ({
+                trip_id: newTripId,
+                fisher_id: fisherId
+            }));
+            
+            const { error: crewError } = await supabase
+                .from('trip_crew')
+                .insert(crewInserts);
+                
+            if (crewError) console.error("Error adding crew to trip:", crewError);
+        }
         
-        res.json({ success: true, tripId: result[0].id, message: 'Trip started' });
+        res.json({ success: true, tripId: newTripId, message: 'Trip request submitted for verification' });
     } catch (error) {
         console.error("Trip Creation Error:", error);
         res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
     }
+});
+
+// Update Trip Expenses (Post-Approval)
+app.post('/api/trips/expenses', async (req, res) => {
+    const { tripId, fuelLiters, fuelPrice, iceKg, icePrice, foodBudget, otherExpenses, totalExpenses } = req.body;
+    
+    try {
+        const toNum = (val) => (val === '' || val === null || val === undefined) ? 0 : parseFloat(val);
+
+        const { data, error } = await supabase
+            .from('trips')
+            .update({
+                fuel_liters: toNum(fuelLiters),
+                fuel_price: toNum(fuelPrice),
+                ice_kg: toNum(iceKg),
+                ice_price: toNum(icePrice),
+                food_budget: toNum(foodBudget),
+                other_expenses: toNum(otherExpenses),
+                total_expenses: toNum(totalExpenses)
+            })
+            .eq('id', tripId)
+            .select();
+
+        if (error) throw error;
+        
+        res.json({ success: true, message: 'Trip expenses updated successfully' });
+    } catch (error) {
+        console.error("Expense Update Error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Pending Trips (Worker)
+app.get('/api/trips/pending', async (req, res) => {
+    try {
+        const { data: trips, error } = await supabase
+            .from('trips')
+            .select('*')
+            .eq('status', 'pending')
+            .order('id', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, trips });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Approve Trip (Worker)
+app.post('/api/trips/approve', async (req, res) => {
+    const { tripId } = req.body;
+    try {
+        // Generate official Trip Code
+        // Format: TRIP_YYYYMMDD_RANDOM
+        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+        const random = Math.floor(100000 + Math.random() * 900000);
+        const tripCode = `TRIP_${dateStr}_${random}`;
+
+        const { data, error } = await supabase
+            .from('trips')
+            .update({ 
+                status: 'active',
+                trip_code: tripCode
+            })
+            .eq('id', tripId)
+            .select();
+
+        if (error) throw error;
+        res.json({ success: true, tripCode, message: 'Trip approved and active.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Captain's Trips
+app.get('/api/trips/captain', async (req, res) => {
+    const { vessel } = req.query;
+    
+    // If vessel name is provided, use it
+    if (vessel && vessel !== 'undefined' && vessel !== 'null') {
+        try {
+            const { data: trips, error } = await supabase
+                .from('trips')
+                .select('*')
+                .eq('vessel_name', vessel)
+                .order('id', { ascending: false });
+
+            if (error) throw error;
+            return res.json({ success: true, trips });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+    
+    // Fallback: If no vessel name, return empty list or try to find by user ID if we had auth middleware
+    // For now, just return empty to prevent crash
+    return res.json({ success: true, trips: [] });
 });
 
 app.get('/api/trips/active', async (req, res) => {
@@ -350,6 +544,121 @@ app.post('/api/catch', async (req, res) => {
     } catch (error) {
         console.error("Catch Log API Error:", error);
         res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
+    }
+});
+
+// Fisher Auth & Management
+app.post('/api/auth/fisher/login', async (req, res) => {
+    const { mobile } = req.body;
+    try {
+        // Check if fisher exists
+        const { data: fisher, error } = await supabase
+            .from('fishers')
+            .select('*')
+            .eq('mobile_number', mobile)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+
+        if (!fisher) {
+            // New user, needs registration
+            return res.json({ success: true, isNewUser: true, message: 'User not found, please register' });
+        }
+
+        // Existing user, return profile
+        // In a real app, we would send OTP here. For now, we mock success.
+        return res.json({ 
+            success: true, 
+            isNewUser: false, 
+            user: { ...fisher, role: 'fisher' },
+            token: 'mock-jwt-token-fisher' 
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/api/fishers', async (req, res) => {
+    const data = req.body;
+    try {
+        // Generate Profile QR: FISHER-MOBILE-RANDOM
+        const qrCode = `FISHER-${data.mobile}-${Math.floor(1000 + Math.random() * 9000)}`;
+        
+        const { data: newFisher, error } = await supabase
+            .from('fishers')
+            .insert([{
+                full_name: data.fullName,
+                fathers_name: data.fathersName,
+                mobile_number: data.mobile,
+                home_port: data.homePort,
+                address: data.address,
+                emergency_contact_name: data.emergencyName,
+                emergency_contact_number: data.emergencyNumber,
+                qr_code: qrCode
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({ success: true, user: { ...newFisher, role: 'fisher' }, message: 'Registration successful' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/fishers/:id/trips', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data: trips, error } = await supabase
+            .from('trip_crew')
+            .select(`
+                joined_at,
+                trips (
+                    trip_code,
+                    vessel_name,
+                    departure_date,
+                    status
+                )
+            `)
+            .eq('fisher_id', id)
+            .order('joined_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, trips: trips.map(t => ({ ...t.trips, joined_at: t.joined_at })) });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.get('/api/fishers/qr/:qrCode', async (req, res) => {
+    const { qrCode } = req.params;
+    try {
+        const { data: fisher, error } = await supabase
+            .from('fishers')
+            .select('*')
+            .eq('qr_code', qrCode)
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, fisher });
+    } catch (error) {
+        res.status(404).json({ success: false, message: 'Fisher not found' });
+    }
+});
+
+app.get('/api/admin/fishers', async (req, res) => {
+    try {
+        const { data: fishers, error } = await supabase
+            .from('fishers')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, fishers });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

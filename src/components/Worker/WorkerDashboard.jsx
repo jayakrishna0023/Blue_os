@@ -4,6 +4,7 @@ import { LayoutDashboard, ClipboardCheck, LogOut } from 'lucide-react';
 import { authAPI } from '../../services/api';
 import WorkerHome from './WorkerHome';
 import WorkerEntry from './WorkerEntry';
+import CrateManagement from './CrateManagement';
 
 const WorkerDashboard = () => {
   const location = useLocation();
@@ -50,6 +51,30 @@ const WorkerDashboard = () => {
           >
             <ClipboardCheck className="w-5 h-5" />
             Data Entry
+          </Link>
+
+          <Link 
+            to="/worker/approvals" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+              isActive('/worker/approvals') 
+                ? 'bg-blue-50 text-blue-700 shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardCheck className="w-5 h-5" />
+            Trip Approvals
+          </Link>
+
+          <Link 
+            to="/worker/crates" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+              isActive('/worker/crates') 
+                ? 'bg-blue-50 text-blue-700 shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <ClipboardCheck className="w-5 h-5" />
+            Crates Packing
           </Link>
         </nav>
 
@@ -99,6 +124,8 @@ const WorkerDashboard = () => {
         <Routes>
           <Route path="/" element={<WorkerHome />} />
           <Route path="/entry" element={<WorkerEntry />} />
+          <Route path="/approvals" element={<TripApprovals />} />
+          <Route path="/crates" element={<CrateManagement />} />
         </Routes>
       </main>
     </div>

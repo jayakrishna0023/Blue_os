@@ -2,26 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
-import { Ship, Calendar, MapPin, ArrowRight, Clock, Activity, CheckCircle, AlertCircle } from 'lucide-react';
+import { Ship, Calendar, MapPin, ArrowRight, Clock, Activity, CheckCircle, AlertCircle, FileCheck } from 'lucide-react';
 
 const WorkerHome = () => {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const user = getCurrentUser();
 
   useEffect(() => {
-    loadTrips();
+    loadData();
   }, []);
 
-  const loadTrips = async () => {
+  const loadData = async () => {
     try {
-      const response = await mainAPI.getAvailableTrips();
-      if (response.success && response.trips) {
-        setTrips(response.trips);
+      const [tripsRes, pendingRes] = await Promise.all([
+        mainAPI.getAvailableTrips(),
+        mainAPI.getPendingTrips()
+      ]);
+      
+      if (tripsRes.success && tripsRes.trips) {
+        setTrips(tripsRes.trips);
+      }
+      if (pendingRes.success && pendingRes.trips) {
+        setPendingCount(pendingRes.trips.length);
       }
     } catch (error) {
-      console.error('Error loading trips:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -68,7 +76,20 @@ const WorkerHome = () => {
               </div>
               <div>
                 <p className="text-xs text-blue-200 uppercase tracking-wider">Pending Tasks</p>
-                <p className="font-semibold">{trips.length} Trips</p>
+                <p className="font-semibold">{trips.length} Active Trips</p>
+              </div>
+            </div>
+
+            <div 
+                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 flex items-center gap-3 border border-white/10 cursor-pointer hover:bg-white/20 transition-colors"
+                onClick={() => navigate('approvals')}
+            >
+              <div className="bg-orange-400/20 p-2 rounded-lg">
+                <FileCheck className="w-5 h-5 text-orange-300" />
+              </div>
+              <div>
+                <p className="text-xs text-blue-200 uppercase tracking-wider">Approvals</p>
+                <p className="font-semibold">{pendingCount} Requests</p>
               </div>
             </div>
           </div>
