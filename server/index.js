@@ -184,7 +184,9 @@ app.post('/api/trips', async (req, res) => {
     try {
         // Determine status and code
         // If it's a new request, it's pending and has a temporary code
-        const status = 'pending';
+        // NOTE: We use 'active' status because some DBs have a constraint checking for 'active'/'completed' only.
+        // We distinguish pending trips by their 'REQ-' code prefix.
+        const status = 'active'; 
         const tempCode = `REQ-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const tripCode = data.tripCode || tempCode;
 
@@ -284,10 +286,12 @@ app.post('/api/trips/expenses', async (req, res) => {
 // Get Pending Trips (Worker)
 app.get('/api/trips/pending', async (req, res) => {
     try {
+        // Fetch trips that are either 'pending' OR 'active' but have a temporary code (REQ-...)
+        // This handles both DB schema versions (strict vs flexible status)
         const { data: trips, error } = await supabase
             .from('trips')
             .select('*')
-            .eq('status', 'pending')
+            .or('status.eq.pending,and(status.eq.active,trip_code.ilike.REQ-%)')
             .order('id', { ascending: false });
 
         if (error) throw error;
@@ -354,6 +358,7 @@ app.get('/api/trips/active', async (req, res) => {
             .from('trips')
             .select('*')
             .eq('status', 'active')
+            .not('trip_code', 'ilike', 'REQ-%') // Exclude pending requests
             .order('id', { ascending: false });
 
         if (error) throw error;

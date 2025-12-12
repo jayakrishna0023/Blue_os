@@ -5,6 +5,7 @@ import { authAPI } from '../../services/api';
 import WorkerHome from './WorkerHome';
 import WorkerEntry from './WorkerEntry';
 import CrateManagement from './CrateManagement';
+import TripApprovals from './TripApprovals';
 
 const WorkerDashboard = () => {
   const location = useLocation();

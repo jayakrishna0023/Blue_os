@@ -10,13 +10,22 @@ const api = axios.create({
   },
 });
 
+const saveUserSession = (user) => {
+  const userString = JSON.stringify(user);
+  let saved = false;
+  try { localStorage.setItem('user', userString); saved = true; console.log('Saved to localStorage'); } catch (e) { console.warn('localStorage failed', e); }
+  if (!saved) { try { sessionStorage.setItem('user', userString); saved = true; console.log('Saved to sessionStorage'); } catch (e) { console.warn('sessionStorage failed', e); } }
+  if (!saved) { window.currentUser = user; console.log('Saved to memory'); }
+};
+
 // Auth API
 export const authAPI = {
   login: async (username, password) => {
     try {
       const response = await api.post('/auth/login', { username, password });
-      if (response.data.success) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      console.log('Login API Response:', response.data);
+      if (response.data.success && response.data.user) {
+        saveUserSession(response.data.user);
       }
       return response.data;
     } catch (error) {
@@ -25,22 +34,41 @@ export const authAPI = {
     }
   },
   logout: () => {
-    localStorage.removeItem('user');
-    window.location.href = '/';
+    try {
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
+      window.currentUser = null;
+      window.location.href = '/';
+    } catch (e) {
+      console.error('Logout error:', e);
+      window.location.href = '/';
+    }
   },
   fisherLogin: async (mobile) => {
-    const response = await api.post('/auth/fisher/login', { mobile });
-    if (response.data.success && !response.data.isNewUser) {
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      const response = await api.post('/auth/fisher/login', { mobile });
+      console.log('Fisher Login API Response:', response.data);
+      if (response.data.success && !response.data.isNewUser && response.data.user) {
+        saveUserSession(response.data.user);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Fisher Login Error:', error);
+      throw error;
     }
-    return response.data;
   },
   registerFisher: async (data) => {
-    const response = await api.post('/fishers', data);
-    if (response.data.success) {
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      const response = await api.post('/fishers', data);
+      console.log('Fisher Registration Response:', response.data);
+      if (response.data.success && response.data.user) {
+        saveUserSession(response.data.user);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Fisher Registration Error:', error);
+      throw error;
     }
-    return response.data;
   }
 };
 
@@ -101,18 +129,49 @@ export const mainAPI = {
     const payload = {
         tripId: speciesData.tripId,
         species: speciesData.species,
-        weight: speciesData.weight || 0, // Default to 0 if not provided
+        weight: speciesData.weight || 0,
         count: speciesData.count || 1,
-        grade: speciesData.grade || 'B',
-        location: speciesData.location || 'Unknown',
-        image: speciesData.image,
-        tagId: speciesData.tagId
+        qualityGrade: speciesData.grade || speciesData.qualityGrade || 'B', // Map grade to qualityGrade
+        freshness: speciesData.freshness || 'Excellent',
+        damage: speciesData.damage || 'None',
+        locationName: speciesData.locationName || 'Unknown',
+        images: speciesData.images || [],
+        qrCode: speciesData.qr || speciesData.qrCode || speciesData.tagId, // Handle various input names
+        gps: {
+            lat: speciesData.latitude || 0,
+            lng: speciesData.longitude || 0
+        },
+        catchSessionId: speciesData.catchSessionId,
+        userId: speciesData.userId,
+        crateId: speciesData.crateId,
+        inspectorId: speciesData.inspectorId
     };
     const response = await api.post('/catch', payload);
     return response.data;
   },
+  // Alias for Worker (uses same endpoint but might have different field names in calling component)
+  saveFish: async (data) => {
+    // WorkerEntry sends: qrCode, weight, qualityGrade, freshness, damage, crateId, tripId, inspectorId
+    return mainAPI.saveSpecies(data);
+  },
   
   // Crate Management
+  getCrates: async () => {
+    const response = await api.get('/crates');
+    return response.data;
+  },
+  verifyFishForCrate: async (qrCode) => {
+    const response = await api.post('/crates/verify-fish', { qrCode });
+    return response.data;
+  },
+  inspectCrate: async (qrCode) => {
+    const response = await api.get(`/crates/${qrCode}`);
+    return response.data;
+  },
+  sealCrate: async (tripId, fishQrs) => {
+    const response = await api.post('/crates/seal', { tripId, fishQrs });
+    return response.data;
+  },
   assignCrate: async (data) => {
     const response = await api.post('/crates/assign', data);
     return response.data;

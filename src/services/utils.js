@@ -1,13 +1,28 @@
 // Utility functions
 
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
-  if (!userStr) return null;
+  // 1. Try LocalStorage
   try {
-    return JSON.parse(userStr);
+    const localUser = localStorage.getItem('user');
+    if (localUser) return JSON.parse(localUser);
   } catch (e) {
-    return null;
+    // Ignore
   }
+
+  // 2. Try SessionStorage
+  try {
+    const sessionUser = sessionStorage.getItem('user');
+    if (sessionUser) return JSON.parse(sessionUser);
+  } catch (e) {
+    // Ignore
+  }
+
+  // 3. Try Memory Fallback
+  if (window.currentUser) {
+    return window.currentUser;
+  }
+
+  return null;
 };
 
 export const generateTripCode = async () => {
