@@ -262,5 +262,31 @@ export const adminAPI = {
   updateVessel: async (vesselId, data) => {
     const response = await api.put(`/vessels/${vesselId}`, data);
     return response.data;
+  },
+  
+  // Registry API
+  getRegistry: async () => {
+    const response = await api.get('/registry');
+    return response.data;
+  },
+  getRegistryEntry: async (rootId) => {
+    const response = await api.get(`/registry/${rootId}`);
+    return response.data;
+  },
+  createRegistryEntry: async (data) => {
+    const response = await api.post('/registry', data);
+    return response.data;
+  },
+  updateRegistryEntry: async (rootId, data) => {
+    const response = await api.put(`/registry/${rootId}`, data);
+    return response.data;
+  },
+  toggleRegistryStatus: async (rootId) => {
+    const response = await api.post(`/registry/${rootId}/toggle-status`);
+    return response.data;
+  },
+  getRegistryStats: async () => {
+    const response = await api.get('/registry/stats/summary');
+    return response.data;
   }
 };

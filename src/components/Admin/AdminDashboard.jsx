@@ -5,8 +5,22 @@ import { getCurrentUser } from '../../services/utils';
 import { 
   LayoutDashboard, Ship, Anchor, Fish, Users, QrCode, 
   LogOut, ChevronRight, CheckCircle, XCircle, Clock, FileText, 
-  MapPin, Calendar, Search, Filter, ArrowLeft, Waves, Download, Edit, Save, X
+  MapPin, Calendar, Search, Filter, ArrowLeft, Waves, Download, Edit, Save, X,
+  Database, UserCheck, Building2, Truck, Eye, Plus
 } from 'lucide-react';
+
+// Participant Type Configuration
+const PARTICIPANT_TYPES = {
+  vessel_owner: { label: 'Vessel Owner', color: 'blue', icon: Ship },
+  fisher: { label: 'Fisher', color: 'cyan', icon: Fish },
+  quality_inspector: { label: 'Quality Inspector', color: 'emerald', icon: UserCheck },
+  crate_packer: { label: 'Crate Packer', color: 'orange', icon: FileText },
+  logistics_provider: { label: 'Logistics Provider', color: 'purple', icon: Truck },
+  admin: { label: 'Administrator', color: 'pink', icon: Users },
+  captain: { label: 'Captain', color: 'indigo', icon: Anchor },
+  vessel: { label: 'Vessel (Asset)', color: 'slate', icon: Ship },
+  facility: { label: 'Facility (Asset)', color: 'amber', icon: Building2 }
+};
 
 const AdminDashboard = () => {
   const [activeView, setActiveView] = useState('overview');
@@ -16,6 +30,13 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Registry State
+  const [registry, setRegistry] = useState([]);
+  const [registryStats, setRegistryStats] = useState({ total: 0, active: 0, inactive: 0, byType: {} });
+  const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [newParticipant, setNewParticipant] = useState({ name: '', type: 'fisher', email: '', contact_number: '', address: '' });
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
   
   // Drill-down state
   const [selectedTrip, setSelectedTrip] = useState(null);
@@ -28,6 +49,7 @@ const AdminDashboard = () => {
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
 
   const navigate = useNavigate();
   const user = getCurrentUser();
@@ -36,6 +58,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     setSearchTerm('');
     setFilterStatus('all');
+    setFilterType('all');
   }, [activeView]);
 
   // Filter Logic
@@ -64,6 +87,16 @@ const AdminDashboard = () => {
      return matchesSearch && matchesFilter;
   });
 
+  // Registry Filter Logic
+  const filteredRegistry = registry.filter(r => {
+    const matchesSearch = (r.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                          (r.root_id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                          (r.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || r.type === filterType;
+    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
+    return matchesSearch && matchesType && matchesStatus;
+  });
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -71,12 +104,13 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [statsData, vesselsData, tripsData, pendingData, usersData] = await Promise.all([
+      const [statsData, vesselsData, tripsData, pendingData, usersData, registryData] = await Promise.all([
         adminAPI.getStatistics(),
         adminAPI.getVessels(),
         adminAPI.getTrips(),
         adminAPI.getPendingRegistrations(),
-        adminAPI.getUsers()
+        adminAPI.getUsers(),
+        adminAPI.getRegistry()
       ]);
 
       if (statsData.success) setStats(statsData.data);
@@ -84,6 +118,15 @@ const AdminDashboard = () => {
       if (tripsData.success) setTrips(tripsData.data);
       if (pendingData.success) setPendingRegistrations(pendingData.data);
       if (usersData.success) setUsers(usersData.data);
+      if (registryData.success) setRegistry(registryData.data);
+      
+      // Load registry stats
+      try {
+        const regStats = await adminAPI.getRegistryStats();
+        if (regStats.success) setRegistryStats(regStats.data);
+      } catch (e) {
+        console.log('Registry stats not available');
+      }
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
@@ -265,6 +308,54 @@ This is a system-generated document from BlueOS.
     setEditedVesselData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Registry Handlers
+  const handleAddParticipant = async () => {
+    if (!newParticipant.name || !newParticipant.type) {
+      alert('Please fill in required fields (Name and Type)');
+      return;
+    }
+    
+    try {
+      const response = await adminAPI.createRegistryEntry(newParticipant);
+      if (response.success) {
+        alert(`Participant added successfully!\nRoot ID: ${response.data.root_id}`);
+        setShowAddParticipant(false);
+        setNewParticipant({ name: '', type: 'fisher', email: '', contact_number: '', address: '' });
+        loadDashboardData();
+      } else {
+        alert('Failed to add participant: ' + (response.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error);
+      alert('An error occurred while adding participant.');
+    }
+  };
+
+  const handleToggleParticipantStatus = async (rootId) => {
+    if (window.confirm('Are you sure you want to change this participant\'s status?')) {
+      try {
+        const response = await adminAPI.toggleRegistryStatus(rootId);
+        if (response.success) {
+          alert(response.message);
+          loadDashboardData();
+        } else {
+          alert('Failed to update status: ' + (response.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error toggling status:', error);
+        alert('An error occurred while updating status.');
+      }
+    }
+  };
+
+  const handleViewParticipant = (participant) => {
+    setSelectedParticipant(participant);
+  };
+
+  const closeParticipantDetails = () => {
+    setSelectedParticipant(null);
+  };
+
   const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
       <div className="min-w-0">
@@ -331,7 +422,7 @@ This is a system-generated document from BlueOS.
             <SidebarItem id="overview" label="Overview" icon={LayoutDashboard} />
             <SidebarItem id="vessels" label="Vessel Registry" icon={Ship} />
             <SidebarItem id="trips" label="Trip Management" icon={Anchor} />
-            <SidebarItem id="users" label="User Management" icon={Users} />
+            <SidebarItem id="registry" label="Registry" icon={Database} />
           </nav>
         </aside>
 
@@ -488,7 +579,7 @@ This is a system-generated document from BlueOS.
             <SidebarItem id="overview" label="Overview" icon={LayoutDashboard} />
             <SidebarItem id="vessels" label="Vessel Registry" icon={Ship} />
             <SidebarItem id="trips" label="Trip Management" icon={Anchor} />
-            <SidebarItem id="users" label="User Management" icon={Users} />
+            <SidebarItem id="registry" label="Registry" icon={Database} />
           </nav>
         </aside>
 
@@ -819,7 +910,7 @@ This is a system-generated document from BlueOS.
           <SidebarItem id="overview" label="Overview" icon={LayoutDashboard} />
           <SidebarItem id="vessels" label="Vessel Registry" icon={Ship} />
           <SidebarItem id="trips" label="Trip Management" icon={Anchor} />
-          <SidebarItem id="users" label="User Management" icon={Users} />
+          <SidebarItem id="registry" label="Registry" icon={Database} />
         </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -870,9 +961,9 @@ This is a system-generated document from BlueOS.
               <Anchor className="w-5 h-5" />
               <span className="text-[10px] font-medium">Trips</span>
             </button>
-            <button onClick={() => setActiveView('users')} className={`mobile-nav-item ${activeView === 'users' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
-              <Users className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Users</span>
+            <button onClick={() => setActiveView('registry')} className={`mobile-nav-item ${activeView === 'registry' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'}`}>
+              <Database className="w-5 h-5" />
+              <span className="text-[10px] font-medium">Registry</span>
             </button>
             <button onClick={() => navigate('/qr-generator')} className="mobile-nav-item text-slate-400">
               <QrCode className="w-5 h-5" />
@@ -1121,23 +1212,54 @@ This is a system-generated document from BlueOS.
           </div>
         )}
 
-        {activeView === 'users' && (
+        {activeView === 'registry' && (
           <div className="space-y-6 animate-fade-in">
-            <h2 className="text-2xl font-bold text-white">User Management</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <Database className="w-7 h-7 text-blue-400" />
+                  Registry
+                </h2>
+                <p className="text-slate-400 text-sm mt-1">Master Data & Root ID Management</p>
+              </div>
+              <button 
+                onClick={() => setShowAddParticipant(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+              >
+                <Plus className="w-5 h-5" />
+                Add Participant
+              </button>
+            </div>
+
+            {/* Registry Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
+                <p className="text-slate-400 text-xs font-medium">Total Entries</p>
+                <h3 className="text-2xl font-bold text-white">{registryStats.total}</h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-4">
+                <p className="text-emerald-400 text-xs font-medium">Active</p>
+                <h3 className="text-2xl font-bold text-emerald-400">{registryStats.active}</h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-red-500/30 rounded-xl p-4">
+                <p className="text-red-400 text-xs font-medium">Inactive</p>
+                <h3 className="text-2xl font-bold text-red-400">{registryStats.inactive}</h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4">
+                <p className="text-blue-400 text-xs font-medium">Types</p>
+                <h3 className="text-2xl font-bold text-blue-400">{Object.keys(registryStats.byType || {}).length}</h3>
+              </div>
+            </div>
             
             {/* Pending Registrations Section */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-6 mb-8 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500"></div>
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-yellow-500" />
-                Pending Approvals
-              </h3>
-              
-              {pendingRegistrations.length === 0 ? (
-                <div className="bg-yellow-500/10 rounded-xl p-4 text-center text-yellow-200/70 border border-yellow-500/20">
-                  <p>No pending registrations at the moment.</p>
-                </div>
-              ) : (
+            {pendingRegistrations.length > 0 && (
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500"></div>
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                  Pending Approvals ({pendingRegistrations.length})
+                </h3>
+                
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead className="bg-yellow-500/10 text-yellow-200">
@@ -1177,73 +1299,308 @@ This is a system-generated document from BlueOS.
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
+            {/* Registry Master View */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-              <div className="p-6 pb-0 flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-white">Active Users</h3>
-                  <div className="flex gap-2">
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
-                        <input 
-                            type="text" 
-                            placeholder="Search users..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 w-48"
-                        />
-                    </div>
-                    <select 
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none focus:border-blue-500 cursor-pointer"
-                    >
-                        <option value="all">All Roles</option>
-                        <option value="Administrator">Admin</option>
-                        <option value="Captain">Captain</option>
-                        <option value="Inspector">Inspector</option>
-                    </select>
+              <div className="p-6 pb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-slate-800">
+                <h3 className="text-lg font-bold text-white">All Participants</h3>
+                <div className="flex flex-wrap gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
+                    <input 
+                      type="text" 
+                      placeholder="Search by name, Root ID..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 w-52"
+                    />
                   </div>
+                  <select 
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="all">All Types</option>
+                    {Object.entries(PARTICIPANT_TYPES).map(([key, val]) => (
+                      <option key={key} value={key}>{val.label}</option>
+                    ))}
+                  </select>
+                  <select 
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
-              <table className="w-full text-left">
-                <thead className="bg-slate-950/50 border-b border-slate-800">
-                  <tr>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">User</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Role</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="px-6 py-4 font-medium text-white">
-                            {u.username}
-                            {u.vessel_name && <span className="block text-xs text-slate-500">Vessel: {u.vessel_name}</span>}
-                        </td>
-                        <td className="px-6 py-4 text-slate-300">{u.role}</td>
-                        <td className="px-6 py-4">
-                            <span className="text-emerald-400 text-xs font-bold bg-emerald-500/20 px-2 py-1 rounded-full border border-emerald-500/30">
-                                Active
-                            </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button className="text-red-400 hover:text-red-300 text-sm font-medium">Disable</button>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-950/50 border-b border-slate-800">
+                    <tr>
+                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Root ID</th>
+                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Name/Identifier</th>
+                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Type</th>
+                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
+                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {filteredRegistry.length > 0 ? (
+                      filteredRegistry.map((entry) => {
+                        const typeConfig = PARTICIPANT_TYPES[entry.type] || { label: entry.type, color: 'slate' };
+                        return (
+                          <tr key={entry.root_id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <span className="font-mono text-sm bg-slate-800 px-2 py-1 rounded text-blue-400 border border-slate-700">
+                                {entry.root_id}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <p className="font-medium text-white">{entry.name}</p>
+                                {entry.email && <p className="text-xs text-slate-500">{entry.email}</p>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full bg-${typeConfig.color}-500/20 text-${typeConfig.color}-400 border border-${typeConfig.color}-500/30`}>
+                                {typeConfig.label}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                entry.status === 'active' 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              }`}>
+                                {entry.status === 'active' ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => handleViewParticipant(entry)}
+                                  className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors border border-blue-500/30"
+                                  title="View Profile"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleToggleParticipantStatus(entry.root_id)}
+                                  className={`p-1.5 rounded-lg transition-colors border ${
+                                    entry.status === 'active'
+                                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
+                                      : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-emerald-500/30'
+                                  }`}
+                                  title={entry.status === 'active' ? 'Disable' : 'Enable'}
+                                >
+                                  {entry.status === 'active' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                          {registry.length === 0 
+                            ? 'No participants in registry yet. Click "Add Participant" to create the first entry.'
+                            : 'No participants found matching your filters.'}
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                        <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
-                            No users found matching your search.
-                        </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Participant Modal */}
+        {showAddParticipant && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-blue-400" />
+                  Add New Participant
+                </h3>
+                <button onClick={() => setShowAddParticipant(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Name/Identifier *</label>
+                  <input 
+                    type="text"
+                    value={newParticipant.name}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                    placeholder="Enter name or identifier"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Participant Type *</label>
+                  <select 
+                    value={newParticipant.type}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                  >
+                    {Object.entries(PARTICIPANT_TYPES).map(([key, val]) => (
+                      <option key={key} value={key}>{val.label}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
+                  <input 
+                    type="email"
+                    value={newParticipant.email}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                    placeholder="email@example.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Contact Number</label>
+                  <input 
+                    type="tel"
+                    value={newParticipant.contact_number}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, contact_number: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                    placeholder="+91 XXXXX XXXXX"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1">Address</label>
+                  <textarea 
+                    value={newParticipant.address}
+                    onChange={(e) => setNewParticipant(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 resize-none"
+                    rows={2}
+                    placeholder="Enter address"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={() => setShowAddParticipant(false)}
+                  className="flex-1 px-4 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddParticipant}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Add to Registry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Participant Modal */}
+        {selectedParticipant && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white">Participant Profile</h3>
+                <button onClick={closeParticipantDetails} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                  <p className="text-xs text-slate-500 mb-1">Root ID (Permanent)</p>
+                  <p className="font-mono text-lg text-blue-400 font-bold">{selectedParticipant.root_id}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Name</p>
+                    <p className="text-white font-medium">{selectedParticipant.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Type</p>
+                    <p className="text-white">{PARTICIPANT_TYPES[selectedParticipant.type]?.label || selectedParticipant.type}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Status</p>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      selectedParticipant.status === 'active' 
+                        ? 'bg-emerald-500/20 text-emerald-400' 
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {selectedParticipant.status === 'active' ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Created</p>
+                    <p className="text-white text-sm">{new Date(selectedParticipant.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                
+                {selectedParticipant.email && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Email</p>
+                    <p className="text-white">{selectedParticipant.email}</p>
+                  </div>
+                )}
+                
+                {selectedParticipant.contact_number && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Contact</p>
+                    <p className="text-white">{selectedParticipant.contact_number}</p>
+                  </div>
+                )}
+                
+                {selectedParticipant.address && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Address</p>
+                    <p className="text-white text-sm">{selectedParticipant.address}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button 
+                  onClick={closeParticipantDetails}
+                  className="flex-1 px-4 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  Close
+                </button>
+                <button 
+                  onClick={() => {
+                    handleToggleParticipantStatus(selectedParticipant.root_id);
+                    closeParticipantDetails();
+                  }}
+                  className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
+                    selectedParticipant.status === 'active'
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  }`}
+                >
+                  {selectedParticipant.status === 'active' ? 'Disable Access' : 'Enable Access'}
+                </button>
+              </div>
             </div>
           </div>
         )}

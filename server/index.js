@@ -26,6 +26,233 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// ==================== REGISTRY SYSTEM ====================
+// Generate unique Root ID: REG_XXXXXX (6 digit random)
+const generateRootId = async () => {
+    let rootId;
+    let exists = true;
+    
+    while (exists) {
+        const randomNum = Math.floor(100000 + Math.random() * 900000);
+        rootId = `REG_${randomNum}`;
+        
+        // Check if exists in registry
+        const { data } = await supabase
+            .from('registry')
+            .select('root_id')
+            .eq('root_id', rootId)
+            .single();
+            
+        exists = !!data;
+    }
+    
+    return rootId;
+};
+
+// Participant Types
+const PARTICIPANT_TYPES = {
+    // Human Participants
+    VESSEL_OWNER: 'vessel_owner',
+    FISHER: 'fisher',
+    QUALITY_INSPECTOR: 'quality_inspector',
+    CRATE_PACKER: 'crate_packer',
+    LOGISTICS_PROVIDER: 'logistics_provider',
+    ADMIN: 'admin',
+    CAPTAIN: 'captain',
+    // Assets
+    VESSEL: 'vessel',
+    FACILITY: 'facility'
+};
+
+// Get all Registry entries
+app.get('/api/registry', async (req, res) => {
+    try {
+        const { data: registry, error } = await supabase
+            .from('registry')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, data: registry || [] });
+    } catch (error) {
+        // If table doesn't exist, return empty array (graceful fallback)
+        console.log('Registry fetch info:', error.message);
+        res.json({ success: true, data: [] });
+    }
+});
+
+// Get Registry entry by Root ID
+app.get('/api/registry/:rootId', async (req, res) => {
+    try {
+        const { data: entry, error } = await supabase
+            .from('registry')
+            .select('*')
+            .eq('root_id', req.params.rootId)
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, data: entry });
+    } catch (error) {
+        res.status(404).json({ success: false, message: 'Registry entry not found' });
+    }
+});
+
+// Create Registry entry
+app.post('/api/registry', async (req, res) => {
+    const { name, type, email, contact_number, address, metadata, linked_user_id, linked_vessel_id } = req.body;
+    
+    try {
+        const rootId = await generateRootId();
+        
+        const { data: entry, error } = await supabase
+            .from('registry')
+            .insert([{
+                root_id: rootId,
+                name: name,
+                type: type,
+                email: email,
+                contact_number: contact_number,
+                address: address,
+                metadata: metadata || {},
+                status: 'active',
+                linked_user_id: linked_user_id,
+                linked_vessel_id: linked_vessel_id,
+                created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, data: entry, message: 'Registry entry created' });
+    } catch (error) {
+        console.error('Registry creation error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update Registry entry
+app.put('/api/registry/:rootId', async (req, res) => {
+    const { name, type, email, contact_number, address, metadata, status } = req.body;
+    
+    try {
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (type !== undefined) updateData.type = type;
+        if (email !== undefined) updateData.email = email;
+        if (contact_number !== undefined) updateData.contact_number = contact_number;
+        if (address !== undefined) updateData.address = address;
+        if (metadata !== undefined) updateData.metadata = metadata;
+        if (status !== undefined) updateData.status = status;
+        updateData.updated_at = new Date().toISOString();
+
+        const { data: entry, error } = await supabase
+            .from('registry')
+            .update(updateData)
+            .eq('root_id', req.params.rootId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, data: entry, message: 'Registry entry updated' });
+    } catch (error) {
+        console.error('Registry update error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Toggle Registry entry status (enable/disable)
+app.post('/api/registry/:rootId/toggle-status', async (req, res) => {
+    try {
+        // Get current status
+        const { data: current, error: fetchError } = await supabase
+            .from('registry')
+            .select('status')
+            .eq('root_id', req.params.rootId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        const newStatus = current.status === 'active' ? 'inactive' : 'active';
+
+        const { data: entry, error } = await supabase
+            .from('registry')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('root_id', req.params.rootId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ success: true, data: entry, message: `Participant ${newStatus === 'active' ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+        console.error('Registry toggle error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Registry statistics
+app.get('/api/registry/stats/summary', async (req, res) => {
+    try {
+        const { data: registry, error } = await supabase
+            .from('registry')
+            .select('type, status');
+
+        if (error) throw error;
+
+        const stats = {
+            total: registry?.length || 0,
+            active: registry?.filter(r => r.status === 'active').length || 0,
+            inactive: registry?.filter(r => r.status === 'inactive').length || 0,
+            byType: {}
+        };
+
+        // Count by type
+        (registry || []).forEach(r => {
+            if (!stats.byType[r.type]) stats.byType[r.type] = 0;
+            stats.byType[r.type]++;
+        });
+
+        res.json({ success: true, data: stats });
+    } catch (error) {
+        res.json({ success: true, data: { total: 0, active: 0, inactive: 0, byType: {} } });
+    }
+});
+
+// Verify Registry access (for login security)
+app.post('/api/registry/verify-access', async (req, res) => {
+    const { userId, rootId } = req.body;
+    
+    try {
+        let query = supabase.from('registry').select('*');
+        
+        if (rootId) {
+            query = query.eq('root_id', rootId);
+        } else if (userId) {
+            query = query.eq('linked_user_id', userId);
+        } else {
+            return res.json({ success: false, hasAccess: false, message: 'No identifier provided' });
+        }
+        
+        const { data: entry, error } = await query.single();
+
+        if (error || !entry) {
+            return res.json({ success: true, hasAccess: false, message: 'Not found in registry' });
+        }
+
+        const hasAccess = entry.status === 'active';
+        res.json({ 
+            success: true, 
+            hasAccess: hasAccess, 
+            registryEntry: entry,
+            message: hasAccess ? 'Access granted' : 'Participant is disabled in registry'
+        });
+    } catch (error) {
+        console.error('Registry verify error:', error);
+        res.json({ success: true, hasAccess: true, message: 'Registry check skipped (table may not exist)' });
+    }
+});
+
+// ==================== END REGISTRY SYSTEM ====================
+
 async function uploadImage(base64Data, bucketName, path) {
     if (!base64Data) return null;
     try {
@@ -72,7 +299,42 @@ app.post('/api/auth/login', async (req, res) => {
 
         if (users.length > 0) {
             const user = users[0];
-            res.json({ success: true, user: { id: user.id, username: user.username, role: user.role, vesselName: user.vessel_name, vessel_id: user.id, owner_id: user.id } });
+            
+            // Registry Security Check: Verify user has active registry entry
+            // Skip for admin role (admins always have access)
+            if (user.role !== 'admin' && user.role !== 'Administrator') {
+                try {
+                    const { data: registryEntry } = await supabase
+                        .from('registry')
+                        .select('*')
+                        .eq('linked_user_id', user.id)
+                        .single();
+
+                    if (registryEntry && registryEntry.status !== 'active') {
+                        return res.json({ 
+                            success: false, 
+                            message: 'Access denied. Your account has been disabled in the registry.' 
+                        });
+                    }
+                    // If no registry entry found, allow login (backward compatibility)
+                } catch (regError) {
+                    // Registry table might not exist yet, allow login
+                    console.log('Registry check skipped:', regError.message);
+                }
+            }
+            
+            res.json({ 
+                success: true, 
+                user: { 
+                    id: user.id, 
+                    username: user.username, 
+                    role: user.role, 
+                    vesselName: user.vessel_name, 
+                    vessel_id: user.id, 
+                    owner_id: user.id,
+                    root_id: user.root_id // Include root_id if exists
+                } 
+            });
         } else {
             res.json({ success: false, message: 'Invalid credentials' });
         }
