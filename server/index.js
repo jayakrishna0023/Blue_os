@@ -59,11 +59,250 @@ const PARTICIPANT_TYPES = {
     LOGISTICS_PROVIDER: 'logistics_provider',
     ADMIN: 'admin',
     CAPTAIN: 'captain',
+    WORKER: 'worker',
     // Assets
     VESSEL: 'vessel',
     FACILITY: 'facility'
 };
 
+// =====================================================
+// UNIFIED REGISTRY ENDPOINTS (Fishers + Staff)
+// =====================================================
+
+// Get Fishers Registry (from fishers table)
+app.get('/api/registry/fishers', async (req, res) => {
+    try {
+        const { data: fishers, error } = await supabase
+            .from('fishers')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        // Transform to registry format
+        const registryData = (fishers || []).map(f => ({
+            id: f.id,
+            root_id: f.qr_code || `FISHER-${f.id}`,
+            name: f.full_name,
+            type: 'fisher',
+            contact_number: f.mobile_number,
+            address: f.address,
+            home_port: f.home_port,
+            status: f.status || 'active',
+            created_at: f.created_at,
+            qr_code: f.qr_code,
+            fathers_name: f.fathers_name,
+            emergency_contact: f.emergency_contact_number,
+            emergency_name: f.emergency_contact_name,
+            trip_count: 0 // Will be populated below
+        }));
+        
+        // Get trip counts for each fisher
+        for (let fisher of registryData) {
+            const { count } = await supabase
+                .from('trip_crew')
+                .select('*', { count: 'exact', head: true })
+                .eq('fisher_id', fisher.id);
+            fisher.trip_count = count || 0;
+        }
+        
+        res.json({ success: true, data: registryData });
+    } catch (error) {
+        console.log('Fishers registry error:', error.message);
+        res.json({ success: true, data: [] });
+    }
+});
+
+// Get Staff Registry (Captains, Workers, etc. from users table)
+app.get('/api/registry/staff', async (req, res) => {
+    try {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .neq('role', 'admin') // Exclude admins from this list
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        // Transform to registry format
+        const registryData = (users || []).map(u => ({
+            id: u.id,
+            root_id: u.root_id || `STAFF-${u.id}`,
+            name: u.username,
+            type: u.role,
+            vessel_name: u.vessel_name,
+            status: u.status || 'active',
+            created_at: u.created_at
+        }));
+        
+        // Get trip counts for captains
+        for (let staff of registryData) {
+            if (staff.type === 'captain' && staff.vessel_name) {
+                const { count } = await supabase
+                    .from('trips')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('vessel_name', staff.vessel_name);
+                staff.trip_count = count || 0;
+            }
+        }
+        
+        res.json({ success: true, data: registryData });
+    } catch (error) {
+        console.log('Staff registry error:', error.message);
+        res.json({ success: true, data: [] });
+    }
+});
+
+// Toggle Fisher status
+app.post('/api/registry/fishers/:id/toggle-status', async (req, res) => {
+    try {
+        console.log('Toggling fisher status for ID:', req.params.id);
+        
+        // First, get the current fisher record
+        const { data: fisher, error: fetchError } = await supabase
+            .from('fishers')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching fisher:', fetchError);
+            throw fetchError;
+        }
+
+        if (!fisher) {
+            return res.status(404).json({ success: false, message: 'Fisher not found' });
+        }
+
+        // Check current status (default to 'active' if not set)
+        const currentStatus = fisher.status || 'active';
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        console.log('Changing status from', currentStatus, 'to', newStatus);
+
+        // Try to update with status column, if it fails with column not exists, 
+        // we need to add it via SQL
+        const { error: updateError } = await supabase
+            .from('fishers')
+            .update({ status: newStatus })
+            .eq('id', req.params.id);
+
+        if (updateError) {
+            // If status column doesn't exist, provide helpful message
+            if (updateError.message && updateError.message.includes('does not exist')) {
+                console.error('Status column missing. Please add it to the fishers table.');
+                return res.status(500).json({ 
+                    success: false, 
+                    message: 'Status column missing in database. Please run: ALTER TABLE fishers ADD COLUMN status TEXT DEFAULT \'active\';' 
+                });
+            }
+            throw updateError;
+        }
+        
+        res.json({ success: true, message: `Fisher ${newStatus === 'active' ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+        console.error('Toggle fisher status error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Toggle Staff status
+app.post('/api/registry/staff/:id/toggle-status', async (req, res) => {
+    try {
+        console.log('Toggling staff status for ID:', req.params.id);
+        
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching staff:', fetchError);
+            throw fetchError;
+        }
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Staff not found' });
+        }
+
+        const currentStatus = user.status || 'active';
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        console.log('Changing status from', currentStatus, 'to', newStatus);
+
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ status: newStatus })
+            .eq('id', req.params.id);
+
+        if (updateError) {
+            if (updateError.message && updateError.message.includes('does not exist')) {
+                console.error('Status column missing. Please add it to the users table.');
+                return res.status(500).json({ 
+                    success: false, 
+                    message: 'Status column missing in database. Please run: ALTER TABLE users ADD COLUMN status TEXT DEFAULT \'active\';' 
+                });
+            }
+            throw updateError;
+        }
+        
+        res.json({ success: true, message: `Staff ${newStatus === 'active' ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+        console.error('Toggle staff status error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Combined Registry Statistics
+app.get('/api/registry/stats', async (req, res) => {
+    try {
+        // Get fishers count
+        const { count: fishersCount } = await supabase
+            .from('fishers')
+            .select('*', { count: 'exact', head: true });
+
+        // Get active fishers count
+        const { count: activeFishers } = await supabase
+            .from('fishers')
+            .select('*', { count: 'exact', head: true })
+            .or('status.eq.active,status.is.null');
+
+        // Get staff counts by role
+        const { data: users } = await supabase
+            .from('users')
+            .select('role, status')
+            .neq('role', 'admin');
+
+        const captains = users?.filter(u => u.role === 'captain') || [];
+        const workers = users?.filter(u => u.role === 'worker') || [];
+
+        res.json({
+            success: true,
+            data: {
+                fishers: {
+                    total: fishersCount || 0,
+                    active: activeFishers || 0
+                },
+                captains: {
+                    total: captains.length,
+                    active: captains.filter(c => c.status === 'active' || !c.status).length
+                },
+                workers: {
+                    total: workers.length,
+                    active: workers.filter(w => w.status === 'active' || !w.status).length
+                },
+                total: (fishersCount || 0) + (users?.length || 0)
+            }
+        });
+    } catch (error) {
+        console.log('Registry stats error:', error.message);
+        res.json({ 
+            success: true, 
+            data: { fishers: { total: 0, active: 0 }, captains: { total: 0, active: 0 }, workers: { total: 0, active: 0 }, total: 0 } 
+        });
+    }
+});
+
+// Original registry endpoints (for backward compatibility)
 // Get all Registry entries
 app.get('/api/registry', async (req, res) => {
     try {
@@ -300,27 +539,12 @@ app.post('/api/auth/login', async (req, res) => {
         if (users.length > 0) {
             const user = users[0];
             
-            // Registry Security Check: Verify user has active registry entry
-            // Skip for admin role (admins always have access)
-            if (user.role !== 'admin' && user.role !== 'Administrator') {
-                try {
-                    const { data: registryEntry } = await supabase
-                        .from('registry')
-                        .select('*')
-                        .eq('linked_user_id', user.id)
-                        .single();
-
-                    if (registryEntry && registryEntry.status !== 'active') {
-                        return res.json({ 
-                            success: false, 
-                            message: 'Access denied. Your account has been disabled in the registry.' 
-                        });
-                    }
-                    // If no registry entry found, allow login (backward compatibility)
-                } catch (regError) {
-                    // Registry table might not exist yet, allow login
-                    console.log('Registry check skipped:', regError.message);
-                }
+            // Check if user status is inactive (disabled in registry)
+            if (user.status === 'inactive') {
+                return res.json({ 
+                    success: false, 
+                    message: 'Access denied. Your account has been disabled by the administrator.' 
+                });
             }
             
             res.json({ 
@@ -499,7 +723,8 @@ app.post('/api/trips', async (req, res) => {
                 expected_return_date: toDate(data.expectedReturn || data.expectedReturnDate), // Handle both key names
                 vessel_image: vesselImageUrl,
                 gear_image: gearImageUrl,
-                status: status
+                status: status,
+                captain_id: data.captainId || null // Store captain's user ID for trip lookup
             }])
             .select();
 
@@ -510,18 +735,43 @@ app.post('/api/trips', async (req, res) => {
 
         const newTripId = result[0].id;
 
-        // Handle Crew List (New Feature)
+        // Handle Crew List - Resolve QR codes to fisher IDs
         if (data.crewIds && Array.isArray(data.crewIds) && data.crewIds.length > 0) {
-            const crewInserts = data.crewIds.map(fisherId => ({
-                trip_id: newTripId,
-                fisher_id: fisherId
-            }));
+            const resolvedFisherIds = [];
             
-            const { error: crewError } = await supabase
-                .from('trip_crew')
-                .insert(crewInserts);
+            for (const crewId of data.crewIds) {
+                // Check if it's a QR code (contains FISHER or dashes) or a numeric ID
+                if (crewId.toString().includes('FISHER') || crewId.toString().includes('-')) {
+                    // It's a QR code - resolve to actual fisher ID
+                    const { data: fisher } = await supabase
+                        .from('fishers')
+                        .select('id')
+                        .eq('qr_code', crewId)
+                        .single();
+                    
+                    if (fisher) {
+                        resolvedFisherIds.push(fisher.id);
+                    } else {
+                        console.log(`Could not resolve QR code: ${crewId}`);
+                    }
+                } else {
+                    // It's already a numeric ID
+                    resolvedFisherIds.push(parseInt(crewId));
+                }
+            }
+            
+            if (resolvedFisherIds.length > 0) {
+                const crewInserts = resolvedFisherIds.map(fisherId => ({
+                    trip_id: newTripId,
+                    fisher_id: fisherId
+                }));
                 
-            if (crewError) console.error("Error adding crew to trip:", crewError);
+                const { error: crewError } = await supabase
+                    .from('trip_crew')
+                    .insert(crewInserts);
+                    
+                if (crewError) console.error("Error adding crew to trip:", crewError);
+            }
         }
         
         res.json({ success: true, tripId: newTripId, message: 'Trip request submitted for verification' });
@@ -607,27 +857,40 @@ app.post('/api/trips/approve', async (req, res) => {
 
 // Get Captain's Trips
 app.get('/api/trips/captain', async (req, res) => {
-    const { vessel } = req.query;
+    const { vessel, userId } = req.query;
     
-    // If vessel name is provided, use it
-    if (vessel && vessel !== 'undefined' && vessel !== 'null') {
-        try {
-            const { data: trips, error } = await supabase
-                .from('trips')
-                .select('*')
-                .eq('vessel_name', vessel)
-                .order('id', { ascending: false });
-
-            if (error) throw error;
-            return res.json({ success: true, trips });
-        } catch (error) {
-            return res.status(500).json({ success: false, message: error.message });
+    try {
+        let query = supabase
+            .from('trips')
+            .select('*')
+            .order('id', { ascending: false });
+        
+        // If vessel name is provided, filter by it
+        if (vessel && vessel !== 'undefined' && vessel !== 'null' && vessel !== '') {
+            query = query.eq('vessel_name', vessel);
+        } else if (userId && userId !== 'undefined' && userId !== 'null') {
+            // Fallback: Find by captain's user ID if stored
+            query = query.eq('captain_id', userId);
         }
+        
+        const { data: trips, error } = await query;
+        
+        if (error) throw error;
+        
+        // Include crew count for each trip
+        const tripsWithCrew = await Promise.all(trips.map(async (trip) => {
+            const { count } = await supabase
+                .from('trip_crew')
+                .select('*', { count: 'exact', head: true })
+                .eq('trip_id', trip.id);
+            return { ...trip, crew_count: count || 0 };
+        }));
+        
+        return res.json({ success: true, trips: tripsWithCrew });
+    } catch (error) {
+        console.error('Captain trips error:', error);
+        return res.status(500).json({ success: false, message: error.message });
     }
-    
-    // Fallback: If no vessel name, return empty list or try to find by user ID if we had auth middleware
-    // For now, just return empty to prevent crash
-    return res.json({ success: true, trips: [] });
 });
 
 app.get('/api/trips/active', async (req, res) => {
@@ -670,7 +933,15 @@ app.get('/api/trips/:tripId/catch', async (req, res) => {
             .order('timestamp', { ascending: false });
 
         if (error) throw error;
-        res.json({ success: true, logs });
+        
+        // Ensure images is always an array
+        const parsedLogs = logs.map(log => ({
+            ...log,
+            images: Array.isArray(log.images) ? log.images : 
+                    (typeof log.images === 'string' ? JSON.parse(log.images || '[]') : [])
+        }));
+        
+        res.json({ success: true, logs: parsedLogs });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -759,10 +1030,12 @@ app.post('/api/catch', async (req, res) => {
                 damage_assessment: data.damage
             };
 
-            // Only update weight if provided (don't overwrite with 0 if not measured)
-            if (data.weight) {
-                updatePayload.weight_kg = data.weight;
+            // Update weight if provided (allow 0, only skip if undefined/null/empty string)
+            if (data.weight !== undefined && data.weight !== null && data.weight !== '') {
+                updatePayload.weight_kg = parseFloat(data.weight) || 0;
             }
+            
+            console.log("Update payload:", updatePayload); // Debug log
 
             // If crate ID is provided (Worker assigning to crate)
             if (data.crateId) {
@@ -848,6 +1121,14 @@ app.post('/api/auth/fisher/login', async (req, res) => {
             return res.json({ success: true, isNewUser: true, message: 'User not found, please register' });
         }
 
+        // Check if fisher status is inactive (disabled in registry)
+        if (fisher.status === 'inactive') {
+            return res.json({ 
+                success: false, 
+                message: 'Access denied. Your account has been disabled by the administrator.' 
+            });
+        }
+
         // Existing user, return profile
         // In a real app, we would send OTP here. For now, we mock success.
         return res.json({ 
@@ -891,21 +1172,37 @@ app.post('/api/fishers', async (req, res) => {
     }
 });
 
+// Get fisher trips - support both numeric ID and QR code
 app.get('/api/fishers/:id/trips', async (req, res) => {
     const { id } = req.params;
     try {
+        let fisherId = id;
+        
+        // If ID looks like a QR code (contains 'FISHER'), resolve to actual ID
+        if (id.includes('FISHER') || id.includes('-')) {
+            const { data: fisher } = await supabase
+                .from('fishers')
+                .select('id')
+                .eq('qr_code', id)
+                .single();
+            if (fisher) fisherId = fisher.id;
+        }
+
         const { data: trips, error } = await supabase
             .from('trip_crew')
             .select(`
                 joined_at,
                 trips (
+                    id,
                     trip_code,
                     vessel_name,
                     departure_date,
-                    status
+                    status,
+                    departure_port,
+                    fishing_method
                 )
             `)
-            .eq('fisher_id', id)
+            .eq('fisher_id', fisherId)
             .order('joined_at', { ascending: false });
 
         if (error) throw error;
@@ -915,6 +1212,7 @@ app.get('/api/fishers/:id/trips', async (req, res) => {
     }
 });
 
+// Get fisher by QR Code (for crew scanning)
 app.get('/api/fishers/qr/:qrCode', async (req, res) => {
     const { qrCode } = req.params;
     try {
@@ -928,6 +1226,61 @@ app.get('/api/fishers/qr/:qrCode', async (req, res) => {
         res.json({ success: true, fisher });
     } catch (error) {
         res.status(404).json({ success: false, message: 'Fisher not found' });
+    }
+});
+
+// Resolve Fisher QR to ID (for crew assignment)
+app.post('/api/fishers/resolve-qr', async (req, res) => {
+    const { qrCode } = req.body;
+    try {
+        const { data: fisher, error } = await supabase
+            .from('fishers')
+            .select('id, full_name, mobile_number, qr_code')
+            .eq('qr_code', qrCode)
+            .single();
+
+        if (error || !fisher) {
+            return res.json({ success: false, message: 'Fisher not found' });
+        }
+        res.json({ success: true, fisher });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get trip crew members
+app.get('/api/trips/:tripId/crew', async (req, res) => {
+    const { tripId } = req.params;
+    try {
+        const { data: crew, error } = await supabase
+            .from('trip_crew')
+            .select(`
+                fisher_id,
+                joined_at,
+                fishers (
+                    id,
+                    full_name,
+                    mobile_number,
+                    qr_code,
+                    home_port
+                )
+            `)
+            .eq('trip_id', tripId);
+
+        if (error) throw error;
+        
+        const crewList = crew.map(c => ({
+            id: c.fisher_id,
+            name: c.fishers?.full_name || 'Unknown',
+            mobile: c.fishers?.mobile_number,
+            qrCode: c.fishers?.qr_code,
+            homePort: c.fishers?.home_port,
+            joinedAt: c.joined_at
+        }));
+        
+        res.json({ success: true, crew: crewList });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -1071,9 +1424,11 @@ app.post('/api/crates/verify-fish', async (req, res) => {
 });
 
 app.post('/api/crates/seal', async (req, res) => {
-    const { tripId, fishQrCodes } = req.body;
+    // Accept both 'fishQrs' (from frontend) and 'fishQrCodes' for compatibility
+    const { tripId, fishQrs, fishQrCodes } = req.body;
+    const qrCodes = fishQrs || fishQrCodes;
     
-    if (!fishQrCodes || fishQrCodes.length === 0) {
+    if (!qrCodes || qrCodes.length === 0) {
         return res.status(400).json({ success: false, message: 'No fish selected for crate.' });
     }
 
@@ -1089,7 +1444,7 @@ app.post('/api/crates/seal', async (req, res) => {
         const { data: fishData, error: fetchError } = await supabase
             .from('catch_logs')
             .select('weight_kg, count')
-            .in('qr_code', fishQrCodes);
+            .in('qr_code', qrCodes);
             
         if (fetchError) throw fetchError;
 
@@ -1114,7 +1469,7 @@ app.post('/api/crates/seal', async (req, res) => {
         const { error: updateError } = await supabase
             .from('catch_logs')
             .update({ crate_id: crate.id })
-            .in('qr_code', fishQrCodes);
+            .in('qr_code', qrCodes);
 
         if (updateError) throw updateError;
 
@@ -1335,26 +1690,28 @@ app.put('/api/vessels/:id', async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     try {
-        const updateData = {
-            vessel_name: data.vessel_name,
-            registration_number: data.registration_number,
-            home_port: data.home_port,
-            vessel_type: data.vessel_type,
-            engine_power: data.engine_power,
-            fuel_type: data.fuel_type,
-            storage_capacity: data.storage_capacity,
-            crew_capacity: data.crew_capacity,
-            owner_name: data.owner_name,
-            contact_number: data.contact_number,
-            email: data.email,
-            address: data.address,
-            license_number: data.license_number
-        };
+        // Only include fields that exist in the database schema
+        const updateData = {};
+        
+        // Core vessel fields (most likely to exist)
+        if (data.vessel_name !== undefined) updateData.vessel_name = data.vessel_name;
+        if (data.registration_number !== undefined) updateData.registration_number = data.registration_number;
+        if (data.home_port !== undefined) updateData.home_port = data.home_port;
+        if (data.vessel_type !== undefined) updateData.vessel_type = data.vessel_type;
+        if (data.owner_name !== undefined) updateData.owner_name = data.owner_name;
+        if (data.contact_number !== undefined) updateData.contact_number = data.contact_number;
+        if (data.email !== undefined) updateData.email = data.email;
+        if (data.address !== undefined) updateData.address = data.address;
+        if (data.license_number !== undefined) updateData.license_number = data.license_number;
+        
+        // Optional fields (may or may not exist in DB)
+        if (data.engine_power !== undefined) updateData.engine_power = data.engine_power;
+        if (data.storage_capacity !== undefined) updateData.storage_capacity = data.storage_capacity;
+        if (data.crew_capacity !== undefined) updateData.crew_capacity = data.crew_capacity;
 
-        // Remove undefined/null values
-        Object.keys(updateData).forEach(key => {
-            if (updateData[key] === undefined) delete updateData[key];
-        });
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid fields to update' });
+        }
 
         const { data: result, error } = await supabase
             .from('vessels')
@@ -1362,7 +1719,34 @@ app.put('/api/vessels/:id', async (req, res) => {
             .eq('id', id)
             .select();
 
-        if (error) throw error;
+        if (error) {
+            // If column doesn't exist error, try with minimal fields
+            if (error.code === 'PGRST204') {
+                console.log('Column not found, trying minimal update...');
+                const minimalData = {
+                    vessel_name: data.vessel_name,
+                    registration_number: data.registration_number,
+                    home_port: data.home_port,
+                    owner_name: data.owner_name,
+                    contact_number: data.contact_number
+                };
+                
+                Object.keys(minimalData).forEach(key => {
+                    if (minimalData[key] === undefined) delete minimalData[key];
+                });
+                
+                const { data: minResult, error: minError } = await supabase
+                    .from('vessels')
+                    .update(minimalData)
+                    .eq('id', id)
+                    .select();
+                    
+                if (minError) throw minError;
+                return res.json({ success: true, message: 'Vessel updated successfully', data: minResult[0] });
+            }
+            throw error;
+        }
+        
         res.json({ success: true, message: 'Vessel updated successfully', data: result[0] });
     } catch (error) {
         console.error('Vessel update error:', error);

@@ -35,8 +35,9 @@ const QualityEntry = () => {
     try {
       const response = await inspectorAPI.getCatchDetails(code);
       
-      if (response.success && response.data) {
-        const fish = response.data;
+      // Backend returns 'log' not 'data'
+      if (response.success && response.log) {
+        const fish = response.log;
         setSelectedCatch(fish);
         setInspectionData({
           temperature: fish.temperature || '',

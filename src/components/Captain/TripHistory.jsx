@@ -24,9 +24,10 @@ const TripHistory = () => {
 
   const fetchTrips = async () => {
     try {
-      // Pass vessel name if available, otherwise let backend handle it
-      const vesselName = user?.vessel_name || '';
-      const response = await mainAPI.getCaptainTrips(vesselName);
+      // Pass vessel name and user ID for better trip matching
+      const vesselName = user?.vessel_name || user?.vesselName || '';
+      const userId = user?.id || '';
+      const response = await mainAPI.getCaptainTrips(vesselName, userId);
       if (response.success) {
         setTrips(response.trips);
       } else {

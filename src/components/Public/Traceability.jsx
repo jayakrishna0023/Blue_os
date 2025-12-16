@@ -23,7 +23,15 @@ const Traceability = () => {
     try {
       const response = await publicAPI.traceCatch(code);
       if (response.success) {
-        setTraceData(response.data);
+        // Backend returns 'log' not 'data'
+        const log = response.log;
+        // Merge trip data into the main object for easier access
+        if (log && log.trips) {
+          log.vessel_name = log.trips.vessel_name;
+          log.trip_code = log.trips.trip_code;
+          log.departure_date = log.trips.departure_date;
+        }
+        setTraceData(log);
       } else {
         setError(response.message || 'Catch not found');
       }

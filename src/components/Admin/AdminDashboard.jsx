@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI, adminAPI } from '../../services/api';
+import { authAPI, adminAPI, mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
 import { 
   LayoutDashboard, Ship, Anchor, Fish, Users, QrCode, 
@@ -32,8 +32,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   
   // Registry State
-  const [registry, setRegistry] = useState([]);
-  const [registryStats, setRegistryStats] = useState({ total: 0, active: 0, inactive: 0, byType: {} });
+  const [fishersRegistry, setFishersRegistry] = useState([]);
+  const [staffRegistry, setStaffRegistry] = useState([]);
+  const [registryStats, setRegistryStats] = useState({ fishers: { total: 0, active: 0 }, captains: { total: 0, active: 0 }, workers: { total: 0, active: 0 }, total: 0 });
+  const [registryTab, setRegistryTab] = useState('fishers'); // 'fishers' or 'staff'
   const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [newParticipant, setNewParticipant] = useState({ name: '', type: 'fisher', email: '', contact_number: '', address: '' });
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -88,12 +90,13 @@ const AdminDashboard = () => {
   });
 
   // Registry Filter Logic
-  const filteredRegistry = registry.filter(r => {
+  const currentRegistry = registryTab === 'fishers' ? fishersRegistry : staffRegistry;
+  const filteredRegistry = currentRegistry.filter(r => {
     const matchesSearch = (r.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                           (r.root_id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                          (r.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+                          (r.contact_number?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || r.type === filterType;
-    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
+    const matchesStatus = filterStatus === 'all' || r.status === filterStatus || (!r.status && filterStatus === 'active');
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -104,13 +107,15 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [statsData, vesselsData, tripsData, pendingData, usersData, registryData] = await Promise.all([
+      const [statsData, vesselsData, tripsData, pendingData, usersData, fishersReg, staffReg, regStats] = await Promise.all([
         adminAPI.getStatistics(),
         adminAPI.getVessels(),
         adminAPI.getTrips(),
         adminAPI.getPendingRegistrations(),
         adminAPI.getUsers(),
-        adminAPI.getRegistry()
+        adminAPI.getFishersRegistry(),
+        adminAPI.getStaffRegistry(),
+        adminAPI.getRegistryStats()
       ]);
 
       if (statsData.success) setStats(statsData.data);
@@ -118,15 +123,9 @@ const AdminDashboard = () => {
       if (tripsData.success) setTrips(tripsData.data);
       if (pendingData.success) setPendingRegistrations(pendingData.data);
       if (usersData.success) setUsers(usersData.data);
-      if (registryData.success) setRegistry(registryData.data);
-      
-      // Load registry stats
-      try {
-        const regStats = await adminAPI.getRegistryStats();
-        if (regStats.success) setRegistryStats(regStats.data);
-      } catch (e) {
-        console.log('Registry stats not available');
-      }
+      if (fishersReg.success) setFishersRegistry(fishersReg.data);
+      if (staffReg.success) setStaffRegistry(staffReg.data);
+      if (regStats.success) setRegistryStats(regStats.data);
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
@@ -198,15 +197,27 @@ const AdminDashboard = () => {
     }
   };
 
+  const [tripCrew, setTripCrew] = useState([]);
+
   const handleViewTripDetails = async (trip) => {
     setSelectedTrip(trip);
     setLoadingDetails(true);
+    setTripCrew([]);
     try {
-      const response = await adminAPI.getTripDetails(trip.id);
-      if (response.success) {
-        setTripDetails(response.logs);
+      // Fetch both catch logs and crew in parallel
+      const [logsResponse, crewResponse] = await Promise.all([
+        adminAPI.getTripDetails(trip.id),
+        mainAPI.getTripCrew(trip.id)
+      ]);
+      
+      if (logsResponse.success) {
+        setTripDetails(logsResponse.logs);
       } else {
         setTripDetails([]);
+      }
+      
+      if (crewResponse.success) {
+        setTripCrew(crewResponse.crew || []);
       }
     } catch (error) {
       console.error("Failed to load trip details", error);
@@ -219,6 +230,7 @@ const AdminDashboard = () => {
   const closeTripDetails = () => {
     setSelectedTrip(null);
     setTripDetails(null);
+    setTripCrew([]);
   };
 
   const handleViewVesselDetails = (vessel) => {
@@ -331,10 +343,16 @@ This is a system-generated document from BlueOS.
     }
   };
 
-  const handleToggleParticipantStatus = async (rootId) => {
+  const handleToggleParticipantStatus = async (participantId) => {
     if (window.confirm('Are you sure you want to change this participant\'s status?')) {
       try {
-        const response = await adminAPI.toggleRegistryStatus(rootId);
+        let response;
+        if (registryTab === 'fishers') {
+          response = await adminAPI.toggleFisherStatus(participantId);
+        } else {
+          response = await adminAPI.toggleStaffStatus(participantId);
+        }
+        
         if (response.success) {
           alert(response.message);
           loadDashboardData();
@@ -545,6 +563,32 @@ This is a system-generated document from BlueOS.
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+
+            {/* Crew Members Section */}
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="font-bold text-lg text-white mb-6 flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-400" />
+                Crew Members ({tripCrew.length})
+              </h3>
+              
+              {tripCrew.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tripCrew.map((member, idx) => (
+                    <div key={idx} className="bg-slate-800/50 rounded-xl p-4 flex items-center gap-3 border border-slate-700">
+                      <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+                        <Users className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-white truncate">{member.name || 'Unknown'}</p>
+                        <p className="text-xs text-slate-400">{member.mobile || 'No contact'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-500 py-8">No crew members assigned to this trip.</p>
               )}
             </div>
           </div>
@@ -1220,35 +1264,86 @@ This is a system-generated document from BlueOS.
                   <Database className="w-7 h-7 text-blue-400" />
                   Registry
                 </h2>
-                <p className="text-slate-400 text-sm mt-1">Master Data & Root ID Management</p>
+                <p className="text-slate-400 text-sm mt-1">Fishers & Staff Management</p>
               </div>
               <button 
                 onClick={() => setShowAddParticipant(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
               >
                 <Plus className="w-5 h-5" />
-                Add Participant
+                Add {registryTab === 'fishers' ? 'Fisher' : 'Staff'}
               </button>
             </div>
 
-            {/* Registry Stats */}
+            {/* Registry Tabs */}
+            <div className="flex gap-2 border-b border-slate-800 pb-2">
+              <button
+                onClick={() => setRegistryTab('fishers')}
+                className={`px-6 py-3 rounded-t-xl font-medium transition-all flex items-center gap-2 ${
+                  registryTab === 'fishers'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                    : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 hover:text-white'
+                }`}
+              >
+                <Anchor className="w-4 h-4" />
+                Fishers Registry
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-white/20">{registryStats.fishers?.total || 0}</span>
+              </button>
+              <button
+                onClick={() => setRegistryTab('staff')}
+                className={`px-6 py-3 rounded-t-xl font-medium transition-all flex items-center gap-2 ${
+                  registryTab === 'staff'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20'
+                    : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 hover:text-white'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Staff Registry
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-white/20">{(registryStats.captains?.total || 0) + (registryStats.workers?.total || 0)}</span>
+              </button>
+            </div>
+
+            {/* Registry Stats - Context Aware */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-                <p className="text-slate-400 text-xs font-medium">Total Entries</p>
-                <h3 className="text-2xl font-bold text-white">{registryStats.total}</h3>
-              </div>
-              <div className="bg-slate-900/50 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-4">
-                <p className="text-emerald-400 text-xs font-medium">Active</p>
-                <h3 className="text-2xl font-bold text-emerald-400">{registryStats.active}</h3>
-              </div>
-              <div className="bg-slate-900/50 backdrop-blur-xl border border-red-500/30 rounded-xl p-4">
-                <p className="text-red-400 text-xs font-medium">Inactive</p>
-                <h3 className="text-2xl font-bold text-red-400">{registryStats.inactive}</h3>
-              </div>
-              <div className="bg-slate-900/50 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4">
-                <p className="text-blue-400 text-xs font-medium">Types</p>
-                <h3 className="text-2xl font-bold text-blue-400">{Object.keys(registryStats.byType || {}).length}</h3>
-              </div>
+              {registryTab === 'fishers' ? (
+                <>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4">
+                    <p className="text-blue-400 text-xs font-medium">Total Fishers</p>
+                    <h3 className="text-2xl font-bold text-blue-400">{registryStats.fishers?.total || 0}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-4">
+                    <p className="text-emerald-400 text-xs font-medium">Active</p>
+                    <h3 className="text-2xl font-bold text-emerald-400">{registryStats.fishers?.active || 0}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-red-500/30 rounded-xl p-4">
+                    <p className="text-red-400 text-xs font-medium">Inactive</p>
+                    <h3 className="text-2xl font-bold text-red-400">{(registryStats.fishers?.total || 0) - (registryStats.fishers?.active || 0)}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-cyan-500/30 rounded-xl p-4">
+                    <p className="text-cyan-400 text-xs font-medium">With Trips</p>
+                    <h3 className="text-2xl font-bold text-cyan-400">{fishersRegistry.filter(f => f.trips_count > 0).length}</h3>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-purple-500/30 rounded-xl p-4">
+                    <p className="text-purple-400 text-xs font-medium">Total Staff</p>
+                    <h3 className="text-2xl font-bold text-purple-400">{(registryStats.captains?.total || 0) + (registryStats.workers?.total || 0)}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-amber-500/30 rounded-xl p-4">
+                    <p className="text-amber-400 text-xs font-medium">Captains</p>
+                    <h3 className="text-2xl font-bold text-amber-400">{registryStats.captains?.total || 0}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-teal-500/30 rounded-xl p-4">
+                    <p className="text-teal-400 text-xs font-medium">Workers</p>
+                    <h3 className="text-2xl font-bold text-teal-400">{registryStats.workers?.total || 0}</h3>
+                  </div>
+                  <div className="bg-slate-900/50 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-4">
+                    <p className="text-emerald-400 text-xs font-medium">Active</p>
+                    <h3 className="text-2xl font-bold text-emerald-400">{(registryStats.captains?.active || 0) + (registryStats.workers?.active || 0)}</h3>
+                  </div>
+                </>
+              )}
             </div>
             
             {/* Pending Registrations Section */}
@@ -1305,28 +1400,31 @@ This is a system-generated document from BlueOS.
             {/* Registry Master View */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
               <div className="p-6 pb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-slate-800">
-                <h3 className="text-lg font-bold text-white">All Participants</h3>
+                <h3 className="text-lg font-bold text-white">
+                  {registryTab === 'fishers' ? 'All Fishers' : 'All Staff (Captains & Workers)'}
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
                     <input 
                       type="text" 
-                      placeholder="Search by name, Root ID..." 
+                      placeholder={registryTab === 'fishers' ? "Search by name, mobile..." : "Search by name, username..."} 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500 w-52"
                     />
                   </div>
-                  <select 
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none focus:border-blue-500 cursor-pointer"
-                  >
-                    <option value="all">All Types</option>
-                    {Object.entries(PARTICIPANT_TYPES).map(([key, val]) => (
-                      <option key={key} value={key}>{val.label}</option>
-                    ))}
-                  </select>
+                  {registryTab === 'staff' && (
+                    <select 
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value="captain">Captain</option>
+                      <option value="worker">Worker</option>
+                    </select>
+                  )}
                   <select 
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
@@ -1342,34 +1440,46 @@ This is a system-generated document from BlueOS.
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-slate-950/50 border-b border-slate-800">
-                    <tr>
-                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Root ID</th>
-                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Name/Identifier</th>
-                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Type</th>
-                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
-                      <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
-                    </tr>
+                    {registryTab === 'fishers' ? (
+                      <tr>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">QR Code</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Name</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Mobile</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Home Port</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Trips</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
+                      </tr>
+                    ) : (
+                      <tr>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Username</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Name</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Role</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Vessel</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Trips</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
+                        <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
+                      </tr>
+                    )}
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {filteredRegistry.length > 0 ? (
-                      filteredRegistry.map((entry) => {
-                        const typeConfig = PARTICIPANT_TYPES[entry.type] || { label: entry.type, color: 'slate' };
-                        return (
-                          <tr key={entry.root_id} className="hover:bg-slate-800/30 transition-colors">
+                      filteredRegistry.map((entry) => (
+                        registryTab === 'fishers' ? (
+                          <tr key={entry.id} className="hover:bg-slate-800/30 transition-colors">
                             <td className="px-6 py-4">
-                              <span className="font-mono text-sm bg-slate-800 px-2 py-1 rounded text-blue-400 border border-slate-700">
-                                {entry.root_id}
+                              <span className="font-mono text-xs bg-slate-800 px-2 py-1 rounded text-blue-400 border border-slate-700">
+                                {entry.qr_code?.substring(0, 20)}...
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              <div>
-                                <p className="font-medium text-white">{entry.name}</p>
-                                {entry.email && <p className="text-xs text-slate-500">{entry.email}</p>}
-                              </div>
+                              <p className="font-medium text-white">{entry.name}</p>
                             </td>
+                            <td className="px-6 py-4 text-slate-300">{entry.contact_number || entry.mobile || 'N/A'}</td>
+                            <td className="px-6 py-4 text-slate-300">{entry.home_port || 'N/A'}</td>
                             <td className="px-6 py-4">
-                              <span className={`text-xs font-medium px-2 py-1 rounded-full bg-${typeConfig.color}-500/20 text-${typeConfig.color}-400 border border-${typeConfig.color}-500/30`}>
-                                {typeConfig.label}
+                              <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium">
+                                {entry.trips_count || 0}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -1391,7 +1501,7 @@ This is a system-generated document from BlueOS.
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button 
-                                  onClick={() => handleToggleParticipantStatus(entry.root_id)}
+                                  onClick={() => handleToggleParticipantStatus(entry.id)}
                                   className={`p-1.5 rounded-lg transition-colors border ${
                                     entry.status === 'active'
                                       ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
@@ -1404,14 +1514,71 @@ This is a system-generated document from BlueOS.
                               </div>
                             </td>
                           </tr>
-                        );
-                      })
+                        ) : (
+                          <tr key={entry.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <span className="font-mono text-sm bg-slate-800 px-2 py-1 rounded text-purple-400 border border-slate-700">
+                                {entry.username}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="font-medium text-white">{entry.name || entry.username}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                entry.role === 'captain' 
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                  : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+                              }`}>
+                                {entry.role === 'captain' ? 'Captain' : 'Worker'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-300">{entry.vessel_name || 'Not Assigned'}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium">
+                                {entry.trips_count || 0}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                entry.status === 'active' 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              }`}>
+                                {entry.status === 'active' ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => handleViewParticipant(entry)}
+                                  className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors border border-blue-500/30"
+                                  title="View Profile"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleToggleParticipantStatus(entry.id)}
+                                  className={`p-1.5 rounded-lg transition-colors border ${
+                                    entry.status === 'active'
+                                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30'
+                                      : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border-emerald-500/30'
+                                  }`}
+                                  title={entry.status === 'active' ? 'Disable' : 'Enable'}
+                                >
+                                  {entry.status === 'active' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
-                          {registry.length === 0 
-                            ? 'No participants in registry yet. Click "Add Participant" to create the first entry.'
-                            : 'No participants found matching your filters.'}
+                        <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                          {currentRegistry.length === 0 
+                            ? `No ${registryTab === 'fishers' ? 'fishers' : 'staff'} in registry yet.`
+                            : 'No entries found matching your filters.'}
                         </td>
                       </tr>
                     )}
@@ -1589,7 +1756,7 @@ This is a system-generated document from BlueOS.
                 </button>
                 <button 
                   onClick={() => {
-                    handleToggleParticipantStatus(selectedParticipant.root_id);
+                    handleToggleParticipantStatus(selectedParticipant.id);
                     closeParticipantDetails();
                   }}
                   className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${

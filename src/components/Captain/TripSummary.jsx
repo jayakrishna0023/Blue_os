@@ -1,22 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Clock, MapPin, Anchor, Fish, AlertCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, Anchor, Fish, AlertCircle, RefreshCw, Users } from 'lucide-react';
 import { mainAPI } from '../../services/api';
 
 const TripSummary = ({ trip, onComplete }) => {
   const [catchLogs, setCatchLogs] = useState([]);
+  const [crewMembers, setCrewMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchCatchLogs = useCallback(async () => {
+  const fetchTripData = useCallback(async () => {
     if (!trip?.id) return;
     
     try {
-      const response = await mainAPI.getTripCatch(trip.id);
-      if (response.success) {
-        setCatchLogs(response.logs || []);
+      // Fetch both catch logs and crew in parallel
+      const [catchResponse, crewResponse] = await Promise.all([
+        mainAPI.getTripCatch(trip.id),
+        mainAPI.getTripCrew(trip.id)
+      ]);
+      
+      if (catchResponse.success) {
+        setCatchLogs(catchResponse.logs || []);
+      }
+      if (crewResponse.success) {
+        setCrewMembers(crewResponse.crew || []);
       }
     } catch (error) {
-      console.error("Failed to fetch catch logs", error);
+      console.error("Failed to fetch trip data", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -27,13 +36,13 @@ const TripSummary = ({ trip, onComplete }) => {
   useEffect(() => {
     if (trip?.id) {
       setLoading(true);
-      fetchCatchLogs();
+      fetchTripData();
     }
-  }, [trip?.id, fetchCatchLogs]);
+  }, [trip?.id, fetchTripData]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchCatchLogs();
+    fetchTripData();
   };
 
   const handleCompleteTrip = () => {
@@ -53,7 +62,7 @@ const TripSummary = ({ trip, onComplete }) => {
   const tripCode = trip.tripCode || trip.trip_code || 'N/A';
   const tripStart = trip.tripStart || trip.departure_date || trip.created_at;
   const departurePort = trip.departurePort || trip.departure_port || 'Unknown';
-  const crewCount = trip.crewMembers || trip.crew_count || 0;
+  const crewCount = crewMembers.length || trip.crewMembers || trip.crew_count || 0;
   const fuelLiters = trip.fuelLiters || trip.fuel_liters || 0;
   const iceKg = trip.iceKg || trip.ice_kg || 0;
   const totalExpenses = trip.totalExpenses || trip.total_expenses || 0;
@@ -257,6 +266,29 @@ const TripSummary = ({ trip, onComplete }) => {
             </table>
           </div>
         </div>
+
+        {/* Crew Members Section */}
+        {crewMembers.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-left">
+            <h3 className="font-bold text-base sm:text-lg text-slate-800 mb-3 sm:mb-4 flex items-center gap-2">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+              Crew Members ({crewMembers.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {crewMembers.map((member, idx) => (
+                <div key={idx} className="bg-slate-50 rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Users className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 text-sm truncate">{member.name || 'Unknown'}</p>
+                    <p className="text-xs text-slate-500">{member.mobile || 'No contact'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleCompleteTrip}

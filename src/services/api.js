@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 
 // Use relative path '/api' to trigger the Vite proxy
 const API_URL = '/api';
@@ -81,6 +81,10 @@ export const fisherAPI = {
   getProfileByQR: async (qrCode) => {
     const response = await api.get(`/fishers/qr/${qrCode}`);
     return response.data;
+  },
+  resolveQR: async (qrCode) => {
+    const response = await api.post('/fishers/resolve-qr', { qrCode });
+    return response.data;
   }
 };
 
@@ -112,6 +116,10 @@ export const mainAPI = {
     const response = await api.get(`/trips/${tripId}/catch`);
     return response.data;
   },
+  getTripCrew: async (tripId) => {
+    const response = await api.get(`/trips/${tripId}/crew`);
+    return response.data;
+  },
   getPendingTrips: async () => {
     const response = await api.get('/trips/pending');
     return response.data;
@@ -120,8 +128,8 @@ export const mainAPI = {
     const response = await api.post('/trips/approve', { tripId });
     return response.data;
   },
-  getCaptainTrips: async (vesselName) => {
-    const response = await api.get(`/trips/captain?vessel=${vesselName}`);
+  getCaptainTrips: async (vesselName, userId) => {
+    const response = await api.get(`/trips/captain?vessel=${vesselName || ''}&userId=${userId || ''}`);
     return response.data;
   },
   getLogByQR: async (qrCode) => {
@@ -286,7 +294,34 @@ export const adminAPI = {
     return response.data;
   },
   getRegistryStats: async () => {
-    const response = await api.get('/registry/stats/summary');
+    const response = await api.get('/registry/stats');
     return response.data;
-  }
+  },
+  
+  // New Unified Registry Endpoints
+  getFishersRegistry: async () => {
+    const response = await api.get('/registry/fishers');
+    return response.data;
+  },
+  getStaffRegistry: async () => {
+    const response = await api.get('/registry/staff');
+    return response.data;
+  },
+  toggleFisherStatus: async (fisherId) => {
+    const response = await api.post(`/registry/fishers/${fisherId}/toggle-status`);
+    return response.data;
+  },
+  toggleStaffStatus: async (staffId) => {
+    const response = await api.post(`/registry/staff/${staffId}/toggle-status`);
+    return response.data;
+  },
+};
+
+// Helper Functions
+export const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (userStr) return JSON.parse(userStr);
+  } catch (e) { console.warn('Error reading user from storage', e); }
+  return window.currentUser || null;
 };

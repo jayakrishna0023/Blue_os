@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { mainAPI } from '../../services/api';
+import { mainAPI, fisherAPI } from '../../services/api';
 import { generateTripCode, getCurrentUser } from '../../services/utils';
 import { FISHING_METHODS, PORTS, TARGET_SPECIES } from '../../services/constants';
 import { Ship, Calendar, MapPin, Users, Fuel, Snowflake, DollarSign, AlertCircle, Camera, Fish, QrCode, Trash2, CheckCircle } from 'lucide-react';
@@ -52,22 +52,51 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
     setActiveCameraField(null);
   };
 
-  const handleScan = (data) => {
+  const handleScan = async (data) => {
     if (data) {
       // Expected format: FISHER-{MOBILE}-{RANDOM}
-      // In a real app, we would fetch the fisher details from the API using this ID/Code
-      // For now, we'll parse it or just use it as ID
       
       // Check if already added
-      if (crewList.some(c => c.id === data)) {
+      if (crewList.some(c => c.qrCode === data)) {
         alert('Crew member already added!');
         return;
       }
 
-      // Mocking name lookup based on QR
-      const mockName = `Fisher ${data.slice(-4)}`;
+      try {
+        // Resolve QR code to actual fisher details
+        const response = await fisherAPI.resolveQR(data);
+        
+        if (response.success && response.fisher) {
+          const fisher = response.fisher;
+          setCrewList(prev => [...prev, { 
+            id: fisher.id, // Use actual numeric fisher ID
+            qrCode: data, // Keep QR for reference
+            name: fisher.full_name || `Fisher ${data.slice(-4)}`,
+            mobile: fisher.mobile_number,
+            scannedAt: new Date() 
+          }]);
+        } else {
+          // Fallback: If fisher not found, store QR code for backend resolution
+          const mockName = `Fisher ${data.slice(-4)}`;
+          setCrewList(prev => [...prev, { 
+            id: data, // QR code as fallback (backend will resolve)
+            qrCode: data,
+            name: mockName, 
+            scannedAt: new Date() 
+          }]);
+        }
+      } catch (error) {
+        console.error('Error resolving fisher QR:', error);
+        // Fallback on error
+        const mockName = `Fisher ${data.slice(-4)}`;
+        setCrewList(prev => [...prev, { 
+          id: data, 
+          qrCode: data,
+          name: mockName, 
+          scannedAt: new Date() 
+        }]);
+      }
       
-      setCrewList(prev => [...prev, { id: data, name: mockName, scannedAt: new Date() }]);
       setShowScanner(false);
     }
   };
@@ -98,9 +127,10 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
         ...formData,
         crewMembers: crewList.length, // Auto-calculate count
         crewIds: crewList.map(c => c.id), // Send IDs to backend
-        vesselName: user?.vesselName || 'Unknown Vessel',
+        vesselName: user?.vesselName || user?.vessel_name || 'Unknown Vessel',
         vesselId: user?.vessel_id,
-        vesselOwnerId: user?.owner_id
+        vesselOwnerId: user?.owner_id,
+        captainId: user?.id // Include captain's user ID for trip lookup
       };
 
       const response = await mainAPI.saveTrip(tripData);
