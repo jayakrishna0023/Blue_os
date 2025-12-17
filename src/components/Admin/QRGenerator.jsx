@@ -3,8 +3,10 @@ import QRCode from 'qrcode';
 import { ArrowLeft, Download, Printer, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { mainAPI } from '../../services/api';
+import { useToast } from '../Shared/Toast';
 
 const QRGenerator = () => {
+  const toast = useToast();
   const [config, setConfig] = useState({
     qrType: 'FISH',
     countryCode: 'IND',
@@ -27,11 +29,11 @@ const QRGenerator = () => {
         })));
         setGeneratedCodes(codesWithUrls);
       } else {
-        alert('Failed to generate codes: ' + response.message);
+        toast.error('Failed to generate codes: ' + response.message, 'Error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error generating codes');
+      toast.error('Error generating codes', 'Error');
     } finally {
       setLoading(false);
     }

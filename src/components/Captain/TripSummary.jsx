@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, Clock, MapPin, Anchor, Fish, AlertCircle, RefreshCw, Users } from 'lucide-react';
 import { mainAPI } from '../../services/api';
+import ConfirmModal from '../Shared/ConfirmModal';
 
 const TripSummary = ({ trip, onComplete }) => {
   const [catchLogs, setCatchLogs] = useState([]);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [crewMembers, setCrewMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,9 +48,12 @@ const TripSummary = ({ trip, onComplete }) => {
   };
 
   const handleCompleteTrip = () => {
-    if (window.confirm('Are you sure you want to complete this trip? This action cannot be undone.')) {
-      onComplete();
-    }
+    setShowConfirm(true);
+  };
+
+  const confirmComplete = () => {
+    onComplete();
+    setShowConfirm(false);
   };
 
   if (!trip) return null;
@@ -297,6 +302,17 @@ const TripSummary = ({ trip, onComplete }) => {
           Complete Trip & Logout
         </button>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmComplete}
+        title="Complete Trip"
+        message="Are you sure you want to complete this trip? This action cannot be undone."
+        type="danger"
+        confirmText="Complete Trip"
+      />
     </div>
   );
 };

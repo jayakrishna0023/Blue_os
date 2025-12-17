@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from './components/Shared/Toast';
 import LandingPage from './components/LandingPage';
 import Login from './components/Auth/Login';
 import CaptainDashboard from './components/Captain/CaptainDashboard';
@@ -36,15 +37,16 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 function App() {
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="min-h-screen bg-slate-950 text-white font-sans">
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/traceability" element={<Traceability />} />
-          <Route path="/registry" element={<VesselRegistry />} />
+    <ToastProvider>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <div className="min-h-screen bg-slate-950 text-white font-sans">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/traceability" element={<Traceability />} />
+            <Route path="/registry" element={<VesselRegistry />} />
 
           {/* Protected Routes */}
           <Route 
@@ -104,8 +106,9 @@ function App() {
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
-    </Router>
+        </div>
+      </Router>
+    </ToastProvider>
   );
 }
 

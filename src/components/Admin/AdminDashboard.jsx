@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI, adminAPI, mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
+import { useToast } from '../Shared/Toast';
+import ConfirmModal from '../Shared/ConfirmModal';
 import { 
   LayoutDashboard, Ship, Anchor, Fish, Users, QrCode, 
   LogOut, ChevronRight, CheckCircle, XCircle, Clock, FileText, 
   MapPin, Calendar, Search, Filter, ArrowLeft, Waves, Download, Edit, Save, X,
-  Database, UserCheck, Building2, Truck, Eye, Plus
+  Database, UserCheck, Building2, Truck, Eye, Plus, RefreshCw
 } from 'lucide-react';
 
 // Participant Type Configuration
@@ -23,6 +25,7 @@ const PARTICIPANT_TYPES = {
 };
 
 const AdminDashboard = () => {
+  const toast = useToast();
   const [activeView, setActiveView] = useState('overview');
   const [stats, setStats] = useState({ vessels: 0, trips: 0, species: 0, fish: 0 });
   const [vessels, setVessels] = useState([]);
@@ -52,6 +55,16 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'warning',
+    onConfirm: () => {}
+  });
 
   const navigate = useNavigate();
   const user = getCurrentUser();
@@ -137,27 +150,45 @@ const AdminDashboard = () => {
     authAPI.logout();
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadDashboardData();
+      toast.success('Data refreshed successfully!', 'Refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh data', 'Error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleApproveTrip = async (tripId) => {
-    if (window.confirm('Are you sure you want to approve this trip?')) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Approve Trip',
+      message: 'Are you sure you want to approve this trip?',
+      type: 'success',
+      onConfirm: async () => {
         try {
             const response = await adminAPI.approveTrip(tripId);
             if (response.success) {
-                alert('Trip approved successfully!');
-                loadDashboardData(); // Refresh data
+                toast.success('Trip approved successfully!', 'Approved');
+                loadDashboardData();
             } else {
-                alert('Failed to approve trip: ' + response.message);
+                toast.error('Failed to approve trip: ' + response.message, 'Error');
             }
         } catch (error) {
             console.error('Error approving trip:', error);
-            alert('An error occurred while approving the trip.');
+            toast.error('An error occurred while approving the trip.', 'Error');
         }
-    }
+      }
+    });
   };
 
   const handleApprove = async (pendingId) => {
     const pin = window.prompt("Please enter a 4-digit PIN for the new user:", "");
     if (!pin || !/^\d{4}$/.test(pin)) {
-      alert("Invalid PIN. Please enter exactly 4 digits.");
+      toast.warning("Invalid PIN. Please enter exactly 4 digits.", "Validation Error");
       return;
     }
 
@@ -169,32 +200,38 @@ const AdminDashboard = () => {
       });
 
       if (response.success) {
-        alert(`Registration approved!\nNew User Login: ${response.newUser.username}\nPlease share the PIN with the user.`);
+        toast.success(`Registration approved! New User: ${response.newUser.username}. Share the PIN with the user.`, 'Registration Approved');
         loadDashboardData(); // Refresh data
       } else {
-        alert('Approval failed: ' + (response.message || 'Unknown error'));
+        toast.error('Approval failed: ' + (response.message || 'Unknown error'), 'Error');
       }
     } catch (error) {
       console.error('Error approving registration:', error);
-      alert('An error occurred while approving registration.');
+      toast.error('An error occurred while approving registration.', 'Error');
     }
   };
 
   const handleReject = async (pendingId) => {
-    if (window.confirm('Are you sure you want to reject this registration?')) {
-      try {
-        const response = await adminAPI.rejectRegistration(pendingId);
-        if (response.success) {
-          alert('Registration rejected.');
-          loadDashboardData();
-        } else {
-          alert('Failed to reject: ' + (response.message || 'Unknown error'));
+    setConfirmModal({
+      isOpen: true,
+      title: 'Reject Registration',
+      message: 'Are you sure you want to reject this registration?',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await adminAPI.rejectRegistration(pendingId);
+          if (response.success) {
+            toast.success('Registration rejected.', 'Rejected');
+            loadDashboardData();
+          } else {
+            toast.error('Failed to reject: ' + (response.message || 'Unknown error'), 'Error');
+          }
+        } catch (error) {
+          console.error('Error rejecting registration:', error);
+          toast.error('An error occurred while rejecting registration.', 'Error');
         }
-      } catch (error) {
-        console.error('Error rejecting registration:', error);
-        alert('An error occurred while rejecting registration.');
       }
-    }
+    });
   };
 
   const [tripCrew, setTripCrew] = useState([]);
@@ -258,16 +295,16 @@ const AdminDashboard = () => {
     try {
       const response = await adminAPI.updateVessel(selectedVessel.id, editedVesselData);
       if (response.success) {
-        alert('Vessel details updated successfully!');
+        toast.success('Vessel details updated successfully!', 'Saved');
         setSelectedVessel(editedVesselData);
         setEditingVessel(false);
         loadDashboardData(); // Refresh data
       } else {
-        alert('Failed to update vessel: ' + (response.message || 'Unknown error'));
+        toast.error('Failed to update vessel: ' + (response.message || 'Unknown error'), 'Error');
       }
     } catch (error) {
       console.error('Error updating vessel:', error);
-      alert('An error occurred while updating the vessel.');
+      toast.error('An error occurred while updating the vessel.', 'Error');
     }
   };
 
@@ -323,47 +360,53 @@ This is a system-generated document from BlueOS.
   // Registry Handlers
   const handleAddParticipant = async () => {
     if (!newParticipant.name || !newParticipant.type) {
-      alert('Please fill in required fields (Name and Type)');
+      toast.warning('Please fill in required fields (Name and Type)', 'Validation Error');
       return;
     }
     
     try {
       const response = await adminAPI.createRegistryEntry(newParticipant);
       if (response.success) {
-        alert(`Participant added successfully!\nRoot ID: ${response.data.root_id}`);
+        toast.success(`Participant added successfully! Root ID: ${response.data.root_id}`, 'Added');
         setShowAddParticipant(false);
         setNewParticipant({ name: '', type: 'fisher', email: '', contact_number: '', address: '' });
         loadDashboardData();
       } else {
-        alert('Failed to add participant: ' + (response.message || 'Unknown error'));
+        toast.error('Failed to add participant: ' + (response.message || 'Unknown error'), 'Error');
       }
     } catch (error) {
       console.error('Error adding participant:', error);
-      alert('An error occurred while adding participant.');
+      toast.error('An error occurred while adding participant.', 'Error');
     }
   };
 
   const handleToggleParticipantStatus = async (participantId) => {
-    if (window.confirm('Are you sure you want to change this participant\'s status?')) {
-      try {
-        let response;
-        if (registryTab === 'fishers') {
-          response = await adminAPI.toggleFisherStatus(participantId);
-        } else {
-          response = await adminAPI.toggleStaffStatus(participantId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Change Status',
+      message: 'Are you sure you want to change this participant\'s status?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          let response;
+          if (registryTab === 'fishers') {
+            response = await adminAPI.toggleFisherStatus(participantId);
+          } else {
+            response = await adminAPI.toggleStaffStatus(participantId);
+          }
+          
+          if (response.success) {
+            toast.success(response.message, 'Status Updated');
+            loadDashboardData();
+          } else {
+            toast.error('Failed to update status: ' + (response.message || 'Unknown error'), 'Error');
+          }
+        } catch (error) {
+          console.error('Error toggling status:', error);
+          toast.error('An error occurred while updating status.', 'Error');
         }
-        
-        if (response.success) {
-          alert(response.message);
-          loadDashboardData();
-        } else {
-          alert('Failed to update status: ' + (response.message || 'Unknown error'));
-        }
-      } catch (error) {
-        console.error('Error toggling status:', error);
-        alert('An error occurred while updating status.');
       }
-    }
+    });
   };
 
   const handleViewParticipant = (participant) => {
@@ -1021,11 +1064,12 @@ This is a system-generated document from BlueOS.
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 className="text-xl sm:text-2xl font-bold text-white">Dashboard Overview</h2>
               <button 
-                onClick={loadDashboardData} 
-                className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-2"
+                onClick={handleRefresh} 
+                disabled={refreshing}
+                className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
               >
-                <Waves className="w-4 h-4" />
-                Refresh Data
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
               </button>
             </div>
 
@@ -1266,13 +1310,23 @@ This is a system-generated document from BlueOS.
                 </h2>
                 <p className="text-slate-400 text-sm mt-1">Fishers & Staff Management</p>
               </div>
-              <button 
-                onClick={() => setShowAddParticipant(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
-              >
-                <Plus className="w-5 h-5" />
-                Add {registryTab === 'fishers' ? 'Fisher' : 'Staff'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button 
+                  onClick={() => setShowAddParticipant(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add {registryTab === 'fishers' ? 'Fisher' : 'Staff'}
+                </button>
+              </div>
             </div>
 
             {/* Registry Tabs */}
@@ -1321,7 +1375,7 @@ This is a system-generated document from BlueOS.
                   </div>
                   <div className="bg-slate-900/50 backdrop-blur-xl border border-cyan-500/30 rounded-xl p-4">
                     <p className="text-cyan-400 text-xs font-medium">With Trips</p>
-                    <h3 className="text-2xl font-bold text-cyan-400">{fishersRegistry.filter(f => f.trips_count > 0).length}</h3>
+                    <h3 className="text-2xl font-bold text-cyan-400">{fishersRegistry.filter(f => (f.trip_count || 0) > 0).length}</h3>
                   </div>
                 </>
               ) : (
@@ -1479,7 +1533,7 @@ This is a system-generated document from BlueOS.
                             <td className="px-6 py-4 text-slate-300">{entry.home_port || 'N/A'}</td>
                             <td className="px-6 py-4">
                               <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium">
-                                {entry.trips_count || 0}
+                                {entry.trip_count || 0}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -1536,7 +1590,7 @@ This is a system-generated document from BlueOS.
                             <td className="px-6 py-4 text-slate-300">{entry.vessel_name || 'Not Assigned'}</td>
                             <td className="px-6 py-4">
                               <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-medium">
-                                {entry.trips_count || 0}
+                                {entry.trip_count || 0}
                               </span>
                             </td>
                             <td className="px-6 py-4">
@@ -1771,6 +1825,16 @@ This is a system-generated document from BlueOS.
             </div>
           </div>
         )}
+
+        {/* Confirmation Modal */}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmModal.onConfirm}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          type={confirmModal.type}
+        />
       </main>
     </div>
   );

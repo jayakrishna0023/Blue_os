@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { inspectorAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
+import { useToast } from '../Shared/Toast';
 import QRScannerModal from '../Shared/QRScannerModal';
 import { QrCode, Thermometer, Scale, Award, Search, Save, CheckCircle, Ship, Clock, Fish, AlertCircle } from 'lucide-react';
 
 const QualityEntry = () => {
+  const toast = useToast();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [manualQr, setManualQr] = useState('');
@@ -45,11 +47,11 @@ const QualityEntry = () => {
           grade: fish.quality_grade || 'A'
         });
       } else {
-        alert('Catch record not found for this QR code.');
+        toast.warning('Catch record not found for this QR code.', 'Not Found');
       }
     } catch (error) {
       console.error("Error fetching catch details:", error);
-      alert('Failed to retrieve catch details.');
+      toast.error('Failed to retrieve catch details.', 'Error');
     } finally {
       setLoading(false);
     }
@@ -68,12 +70,12 @@ const QualityEntry = () => {
         inspectorId: user?.id
       });
       
-      alert('Inspection Saved Successfully!');
+      toast.success('Inspection saved successfully!', 'Saved');
       setSelectedCatch(null);
       setManualQr('');
       setInspectionData({ temperature: '', weight: '', grade: 'A' });
     } catch (error) {
-      alert('Failed to save inspection');
+      toast.error('Failed to save inspection', 'Error');
     } finally {
       setLoading(false);
     }

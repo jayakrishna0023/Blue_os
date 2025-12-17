@@ -3,9 +3,11 @@ import { mainAPI } from '../../services/api';
 import { getGeolocation, getLocationName, compressImage, getCurrentUser } from '../../services/utils';
 import CameraModal from '../Shared/CameraModal';
 import QRScannerModal from '../Shared/QRScannerModal';
+import { useToast } from '../Shared/Toast';
 import { MapPin, Camera, QrCode, Plus, Trash2, Save, Fish, Image as ImageIcon, X } from 'lucide-react';
 
 const SpeciesEntry = ({ trip }) => {
+  const toast = useToast();
   const [location, setLocation] = useState({ lat: null, lng: null, name: 'Fetching...' });
   const [speciesList, setSpeciesList] = useState([]);
   const [currentEntry, setCurrentEntry] = useState({
@@ -54,11 +56,11 @@ const SpeciesEntry = ({ trip }) => {
     const speciesName = currentEntry.species === 'Other' ? currentEntry.customSpecies : currentEntry.species;
     
     if (!speciesName) {
-      alert('Please select a species');
+      toast.warning('Please select a species', 'Validation');
       return;
     }
     if (currentEntry.qrCodes.length === 0) {
-      alert('Please scan at least one QR code');
+      toast.warning('Please scan at least one QR code', 'Validation');
       return;
     }
 
@@ -77,7 +79,7 @@ const SpeciesEntry = ({ trip }) => {
     if (speciesList.length === 0) return;
     
     if (!trip?.id) {
-      alert("Error: No active trip found. Please restart the trip.");
+      toast.error("No active trip found. Please restart the trip.", "Error");
       return;
     }
 
@@ -111,14 +113,14 @@ const SpeciesEntry = ({ trip }) => {
       const failures = results.filter(r => !r.success);
       if (failures.length > 0) {
         console.error("Some entries failed:", failures);
-        alert(`Error: ${failures[0].message}`);
+        toast.error(failures[0].message, 'Save Failed');
       } else {
-        alert('Catch Session Saved Successfully!');
+        toast.success('Catch Session Saved Successfully!', 'Saved');
         setSpeciesList([]);
       }
     } catch (error) {
       console.error("Save Session Error:", error);
-      alert('Failed to save session. Please check console for details.');
+      toast.error('Failed to save session. Please try again.', 'Error');
     } finally {
       setLoading(false);
     }

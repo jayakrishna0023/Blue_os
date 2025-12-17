@@ -5,8 +5,10 @@ import { FISHING_METHODS, PORTS, TARGET_SPECIES } from '../../services/constants
 import { Ship, Calendar, MapPin, Users, Fuel, Snowflake, DollarSign, AlertCircle, Camera, Fish, QrCode, Trash2, CheckCircle } from 'lucide-react';
 import QRScannerModal from '../Shared/QRScannerModal';
 import CameraModal from '../Shared/CameraModal';
+import { useToast } from '../Shared/Toast';
 
 const TripRegistration = ({ onTripCreated, existingTrip }) => {
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showScanner, setShowScanner] = useState(false);
@@ -58,7 +60,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
       
       // Check if already added
       if (crewList.some(c => c.qrCode === data)) {
-        alert('Crew member already added!');
+        toast.warning('Crew member already added!', 'Duplicate');
         return;
       }
 

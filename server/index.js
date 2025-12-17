@@ -129,10 +129,13 @@ app.get('/api/registry/staff', async (req, res) => {
             id: u.id,
             root_id: u.root_id || `STAFF-${u.id}`,
             name: u.username,
+            username: u.username,
+            role: u.role,
             type: u.role,
             vessel_name: u.vessel_name,
             status: u.status || 'active',
-            created_at: u.created_at
+            created_at: u.created_at,
+            trip_count: 0
         }));
         
         // Get trip counts for captains

@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship, RefreshCw } from 'lucide-react';
 import FisherRegistration from './FisherRegistration';
+import { useToast } from '../Shared/Toast';
 
 const Login = () => {
+  const toast = useToast();
   const [loginType, setLoginType] = useState('fisher'); // 'fisher' or 'vessel'
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
@@ -45,7 +47,7 @@ const Login = () => {
     setLoading(true);
     setTimeout(() => {
         setLoading(false);
-        alert('Your OTP is: 1234');
+        toast.info('Your OTP is: 1234', 'OTP Sent');
     }, 1000);
   };
 

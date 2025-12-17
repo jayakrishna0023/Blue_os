@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { mainAPI } from '../../services/api';
+import { useToast } from '../Shared/Toast';
 import { CheckCircle, XCircle, Clock, Ship, Calendar, MapPin, Users, AlertCircle } from 'lucide-react';
 
 const TripApprovals = () => {
+  const toast = useToast();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,12 +36,12 @@ const TripApprovals = () => {
       if (response.success) {
         // Remove from list
         setTrips(prev => prev.filter(t => t.id !== tripId));
-        // Optional: Show success toast
+        toast.success('Trip approved successfully!', 'Approved');
       } else {
-        alert(response.message || 'Failed to approve trip');
+        toast.error(response.message || 'Failed to approve trip', 'Error');
       }
     } catch (err) {
-      alert('Error approving trip');
+      toast.error('Error approving trip', 'Error');
     } finally {
       setProcessingId(null);
     }

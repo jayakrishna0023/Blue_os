@@ -1,7 +1,9 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { Camera, RefreshCw, X, Zap, ZapOff, MapPin, AlertTriangle } from 'lucide-react';
+import { useToast } from './Toast';
 
 const CameraModal = ({ isOpen, onClose, onCapture, title = "Take Photo", metadata = {} }) => {
+  const toast = useToast();
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [facingMode, setFacingMode] = useState('environment');
@@ -86,7 +88,7 @@ const CameraModal = ({ isOpen, onClose, onCapture, title = "Take Photo", metadat
     try {
       const capabilities = track.getCapabilities();
       if (!capabilities.torch) {
-        alert('Flashlight not supported on this device');
+        toast.warning('Flashlight not supported on this device', 'Not Supported');
         return;
       }
       await track.applyConstraints({
@@ -100,7 +102,7 @@ const CameraModal = ({ isOpen, onClose, onCapture, title = "Take Photo", metadat
 
   const capture = () => {
     if (!videoRef.current || !location) {
-        if (!location) alert("Waiting for GPS location...");
+        if (!location) toast.warning("Waiting for GPS location...", "Location");
         return;
     }
     
