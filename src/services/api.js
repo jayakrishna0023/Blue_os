@@ -169,6 +169,16 @@ export const mainAPI = {
     return mainAPI.saveSpecies(data);
   },
   
+  // Worker Stats
+  getWorkerStats: async (workerId) => {
+    const response = await api.get(`/worker/stats/${workerId}`);
+    return response.data;
+  },
+  getActiveTripsForCrates: async () => {
+    const response = await api.get('/worker/active-trips');
+    return response.data;
+  },
+  
   // Crate Management
   getCrates: async () => {
     const response = await api.get('/crates');

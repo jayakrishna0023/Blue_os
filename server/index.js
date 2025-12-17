@@ -1385,6 +1385,86 @@ app.post('/api/qr/generate', async (req, res) => {
     }
 });
 
+// =====================================================
+// WORKER STATS API
+// =====================================================
+
+// Get worker stats
+app.get('/api/worker/stats/:workerId', async (req, res) => {
+    const { workerId } = req.params;
+    try {
+        // Get fish inspected count (from catch_logs where inspector_id matches)
+        const { count: inspectedCount } = await supabase
+            .from('catch_logs')
+            .select('*', { count: 'exact', head: true })
+            .eq('inspector_id', workerId);
+
+        // Get trips approved count (where worker approved - if tracked)
+        const { count: tripsApproved } = await supabase
+            .from('trips')
+            .select('*', { count: 'exact', head: true })
+            .eq('approved_by', workerId);
+
+        // Get crates packed count
+        const { count: cratesPacked } = await supabase
+            .from('crates')
+            .select('*', { count: 'exact', head: true })
+            .eq('packed_by', workerId);
+
+        // Get recent activity
+        const { data: recentCatches } = await supabase
+            .from('catch_logs')
+            .select('qr_code, species_name, created_at')
+            .eq('inspector_id', workerId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        const { data: recentCrates } = await supabase
+            .from('crates')
+            .select('crate_qr, created_at')
+            .eq('packed_by', workerId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        res.json({
+            success: true,
+            stats: {
+                inspected: inspectedCount || 0,
+                approved: tripsApproved || 0,
+                cratesPacked: cratesPacked || 0
+            },
+            recentActivity: {
+                catches: recentCatches || [],
+                crates: recentCrates || []
+            }
+        });
+    } catch (error) {
+        console.error('Worker stats error:', error);
+        res.json({ 
+            success: true, 
+            stats: { inspected: 0, approved: 0, cratesPacked: 0 },
+            recentActivity: { catches: [], crates: [] }
+        });
+    }
+});
+
+// Get active trips for crate management (trips that are not completed)
+app.get('/api/worker/active-trips', async (req, res) => {
+    try {
+        const { data: trips, error } = await supabase
+            .from('trips')
+            .select('id, trip_code, vessel_name, status, fishing_method, departure_port, created_at')
+            .in('status', ['active', 'approved', 'in_progress'])
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json({ success: true, trips: trips || [] });
+    } catch (error) {
+        console.error('Active trips error:', error);
+        res.json({ success: true, trips: [] });
+    }
+});
+
 // Crates
 app.get('/api/crates', async (req, res) => {
     try {
