@@ -222,9 +222,6 @@ const CrateManagement = () => {
             </button>
           </div>
         </div>
-
-
-        </div>
       </div>
 
       {/* Create Mode */}
