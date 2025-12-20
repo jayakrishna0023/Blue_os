@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Clock, MapPin, Anchor, Fish, AlertCircle, RefreshCw, Users } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, Anchor, Fish, AlertCircle, RefreshCw, Users, Package, QrCode } from 'lucide-react';
 import { mainAPI } from '../../services/api';
 import ConfirmModal from '../Shared/ConfirmModal';
 
@@ -7,6 +7,7 @@ const TripSummary = ({ trip, onComplete }) => {
   const [catchLogs, setCatchLogs] = useState([]);
   const [showConfirm, setShowConfirm] = useState(false);
   const [crewMembers, setCrewMembers] = useState([]);
+  const [crates, setCrates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -14,10 +15,11 @@ const TripSummary = ({ trip, onComplete }) => {
     if (!trip?.id) return;
     
     try {
-      // Fetch both catch logs and crew in parallel
-      const [catchResponse, crewResponse] = await Promise.all([
+      // Fetch catch logs, crew, and crates in parallel
+      const [catchResponse, crewResponse, cratesResponse] = await Promise.all([
         mainAPI.getTripCatch(trip.id),
-        mainAPI.getTripCrew(trip.id)
+        mainAPI.getTripCrew(trip.id),
+        mainAPI.getCrates(trip.id)
       ]);
       
       if (catchResponse.success) {
@@ -25,6 +27,9 @@ const TripSummary = ({ trip, onComplete }) => {
       }
       if (crewResponse.success) {
         setCrewMembers(crewResponse.crew || []);
+      }
+      if (cratesResponse.success) {
+        setCrates(cratesResponse.crates || []);
       }
     } catch (error) {
       console.error("Failed to fetch trip data", error);
@@ -297,6 +302,69 @@ const TripSummary = ({ trip, onComplete }) => {
             </div>
           </div>
         )}
+
+        {/* Crates Section */}
+        <div className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-left">
+          <h3 className="font-bold text-base sm:text-lg text-slate-800 mb-3 sm:mb-4 flex items-center gap-2">
+            <Package className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
+            Packed Crates ({crates.length})
+          </h3>
+          
+          {crates.length === 0 ? (
+            <div className="text-center py-6 text-slate-400 bg-slate-50 rounded-xl">
+              <Package className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No crates packed yet</p>
+              <p className="text-xs">Fish will be packed into crates by workers</p>
+            </div>
+          ) : (
+            <>
+              {/* Crate Summary Stats */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+                <div className="bg-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl text-center">
+                  <p className="text-[10px] sm:text-xs text-amber-600 font-bold uppercase">Crates</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-800">{crates.length}</p>
+                </div>
+                <div className="bg-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl text-center">
+                  <p className="text-[10px] sm:text-xs text-amber-600 font-bold uppercase">Total Fish</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-800">
+                    {crates.reduce((sum, c) => sum + (c.fish_count || 0), 0)}
+                  </p>
+                </div>
+                <div className="bg-amber-50 p-3 sm:p-4 rounded-lg sm:rounded-xl text-center">
+                  <p className="text-[10px] sm:text-xs text-amber-600 font-bold uppercase">Total Weight</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-800">
+                    {crates.reduce((sum, c) => sum + (parseFloat(c.total_weight) || 0), 0).toFixed(1)} <span className="text-sm">kg</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Crate List */}
+              <div className="space-y-3">
+                {crates.map((crate, idx) => (
+                  <div key={crate.id || idx} className="bg-slate-50 rounded-xl p-3 sm:p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                        <QrCode className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-mono font-bold text-xs sm:text-sm text-slate-800 truncate max-w-[150px] sm:max-w-[200px]">
+                          {crate.crate_qr || `CRATE-${crate.id}`}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-slate-500">
+                          {crate.created_at ? new Date(crate.created_at).toLocaleDateString() : 'Unknown date'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm sm:text-base text-slate-700">{crate.total_weight || 0} kg</p>
+                      <p className="text-[10px] sm:text-xs text-slate-500">{crate.fish_count || 0} fish</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         <button
           onClick={handleCompleteTrip}
