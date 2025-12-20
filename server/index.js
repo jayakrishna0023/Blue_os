@@ -1884,11 +1884,12 @@ app.get('/api/fishers/:id/trips', async (req, res) => {
             console.log(`  - Using numeric ID: ${fisherId}`);
         }
 
-        // Don't rely on joined_at column - it may not exist
+        // Now using joined_at column after ALTER TABLE added it
         const { data: trips, error } = await supabase
             .from('trip_crew')
             .select(`
                 trip_id,
+                joined_at,
                 trips (
                     id,
                     trip_code,
@@ -1899,7 +1900,8 @@ app.get('/api/fishers/:id/trips', async (req, res) => {
                     fishing_method
                 )
             `)
-            .eq('fisher_id', fisherId);
+            .eq('fisher_id', fisherId)
+            .order('joined_at', { ascending: false });
 
         if (error) {
             console.log(`  - Trip fetch error:`, error.message);
