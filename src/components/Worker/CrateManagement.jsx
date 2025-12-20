@@ -94,9 +94,9 @@ const CrateManagement = () => {
     console.log(`Scanned code in mode ${scanMode}:`, code);
 
     if (scanMode === 'add-fish') {
-      // Check if already in current list
+      // Check if already in current packing list
       if (currentCrateFish.find(f => f.qr_code === code)) {
-        toast.warning('Fish already added to this crate', 'Duplicate');
+        toast.warning('This fish is already added to this crate', 'Already Added');
         return;
       }
 
@@ -107,9 +107,17 @@ const CrateManagement = () => {
         
         if (response.success) {
           setCurrentCrateFish(prev => [...prev, response.fish]);
-          toast.success(`Added ${response.fish.species_name} (${response.fish.weight_kg}kg)`, 'Fish Added');
+          const newTotal = currentCrateFish.reduce((sum, f) => sum + (parseFloat(f.weight_kg) || 0), 0) + (parseFloat(response.fish.weight_kg) || 0);
+          toast.success(`Added ${response.fish.species_name} (${response.fish.weight_kg}kg) • Total: ${newTotal.toFixed(2)}kg`, 'Fish Added');
         } else {
-          toast.error(response.message || 'Failed to verify fish tag', 'Error');
+          // More descriptive error messages
+          if (response.message?.includes('already packed')) {
+            toast.error('This fish is already packed in another crate', 'Already in Crate');
+          } else if (response.message?.includes('not found')) {
+            toast.error('Fish tag not found. Make sure this fish was logged first.', 'Not Found');
+          } else {
+            toast.error(response.message || 'Failed to verify fish tag', 'Error');
+          }
         }
       } catch (err) {
         console.error("Scan error:", err);
@@ -243,8 +251,31 @@ const CrateManagement = () => {
               <QrCode className="w-8 h-8 text-blue-600" />
             </div>
             <span className="font-bold text-slate-700 text-lg">Scan Fish Tag</span>
-            <p className="text-sm text-slate-500 mt-1">Tap to scan and add fish to this crate</p>
+            <p className="text-sm text-slate-500 mt-1">Tap to scan and add approved fish to this crate</p>
           </div>
+
+          {/* Live Crate Weight Summary */}
+          {currentCrateFish.length > 0 && (
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <Package className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-600 font-medium">Crate Total Weight</p>
+                    <p className="font-bold text-2xl text-emerald-700">
+                      {currentCrateFish.reduce((sum, f) => sum + (parseFloat(f.weight_kg) || 0), 0).toFixed(2)} kg
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Fish Count</p>
+                  <p className="font-bold text-xl text-slate-700">{currentCrateFish.length}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* List of added fish */}
           <div className="space-y-3 mb-6">
