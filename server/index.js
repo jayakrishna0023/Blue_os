@@ -14,8 +14,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'blueos-secret-key-change-in-produc
 const JWT_EXPIRY = '7d'; // Token expires in 7 days
 
 // In-memory session store (for multi-device support)
-// In production, use Redis or database
+// NOTE: This only works for local development. On Vercel/serverless, sessions 
+// are validated via JWT only since each invocation is stateless.
 const activeSessions = new Map();
+
+// Detect if running in serverless environment (Vercel)
+const IS_SERVERLESS = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -51,13 +55,20 @@ const verifyToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        // Check if session is still valid
-        const userSessions = activeSessions.get(decoded.userId);
-        if (userSessions && userSessions.has(decoded.sessionId)) {
+        // In serverless mode, skip in-memory session check (stateless)
+        // Just trust the JWT if it's valid and not expired
+        if (IS_SERVERLESS) {
             req.user = decoded;
             req.sessionId = decoded.sessionId;
         } else {
-            req.user = null; // Session was invalidated
+            // Local mode: Check if session is still valid in memory
+            const userSessions = activeSessions.get(decoded.userId);
+            if (userSessions && userSessions.has(decoded.sessionId)) {
+                req.user = decoded;
+                req.sessionId = decoded.sessionId;
+            } else {
+                req.user = null; // Session was invalidated
+            }
         }
         
         next();
@@ -906,22 +917,25 @@ app.post('/api/auth/login', async (req, res) => {
             // Generate JWT token
             const token = generateToken(user, sessionId);
             
-            // Store session (allows multiple sessions per user)
-            if (!activeSessions.has(user.id)) {
-                activeSessions.set(user.id, new Map());
-            }
-            activeSessions.get(user.id).set(sessionId, {
-                createdAt: new Date(),
-                userAgent: req.headers['user-agent'],
-                ip: req.ip
-            });
-            
-            // Limit to 10 active sessions per user
-            const userSessions = activeSessions.get(user.id);
-            if (userSessions.size > 10) {
-                // Remove oldest session
-                const oldestKey = userSessions.keys().next().value;
-                userSessions.delete(oldestKey);
+            // Store session in memory (only useful for local development)
+            // In serverless mode, JWT alone is used for authentication
+            if (!IS_SERVERLESS) {
+                if (!activeSessions.has(user.id)) {
+                    activeSessions.set(user.id, new Map());
+                }
+                activeSessions.get(user.id).set(sessionId, {
+                    createdAt: new Date(),
+                    userAgent: req.headers['user-agent'],
+                    ip: req.ip
+                });
+                
+                // Limit to 10 active sessions per user
+                const userSessions = activeSessions.get(user.id);
+                if (userSessions.size > 10) {
+                    // Remove oldest session
+                    const oldestKey = userSessions.keys().next().value;
+                    userSessions.delete(oldestKey);
+                }
             }
             
             res.json({ 
@@ -1773,15 +1787,17 @@ app.post('/api/auth/fisher/login', async (req, res) => {
         // Generate JWT token
         const token = generateToken(userForToken, sessionId);
         
-        // Store session
-        if (!activeSessions.has(fisher.id)) {
-            activeSessions.set(fisher.id, new Map());
+        // Store session (only in local mode)
+        if (!IS_SERVERLESS) {
+            if (!activeSessions.has(fisher.id)) {
+                activeSessions.set(fisher.id, new Map());
+            }
+            activeSessions.get(fisher.id).set(sessionId, {
+                createdAt: new Date(),
+                userAgent: req.headers['user-agent'],
+                ip: req.ip
+            });
         }
-        activeSessions.get(fisher.id).set(sessionId, {
-            createdAt: new Date(),
-            userAgent: req.headers['user-agent'],
-            ip: req.ip
-        });
 
         // Existing user, return profile with proper token
         return res.json({ 
@@ -1829,15 +1845,17 @@ app.post('/api/fishers', async (req, res) => {
         };
         const token = generateToken(userForToken, sessionId);
         
-        // Store session
-        if (!activeSessions.has(newFisher.id)) {
-            activeSessions.set(newFisher.id, new Map());
+        // Store session (only in local mode)
+        if (!IS_SERVERLESS) {
+            if (!activeSessions.has(newFisher.id)) {
+                activeSessions.set(newFisher.id, new Map());
+            }
+            activeSessions.get(newFisher.id).set(sessionId, {
+                createdAt: new Date(),
+                userAgent: req.headers['user-agent'],
+                ip: req.ip
+            });
         }
-        activeSessions.get(newFisher.id).set(sessionId, {
-            createdAt: new Date(),
-            userAgent: req.headers['user-agent'],
-            ip: req.ip
-        });
 
         res.json({ 
             success: true, 
