@@ -223,61 +223,7 @@ const CrateManagement = () => {
           </div>
         </div>
 
-        {/* Trip Selector */}
-        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Ship className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Selected Trip</p>
-                {selectedTrip ? (
-                  <p className="font-bold text-slate-800">{selectedTrip.trip_code} - {selectedTrip.vessel_name}</p>
-                ) : (
-                  <p className="text-slate-400">No trip selected</p>
-                )}
-              </div>
-            </div>
-            
-            {activeTrips.length > 0 && (
-              <div className="relative">
-                <select
-                  value={selectedTrip?.id || ''}
-                  onChange={(e) => {
-                    const trip = activeTrips.find(t => t.id === parseInt(e.target.value));
-                    setSelectedTrip(trip);
-                  }}
-                  className="appearance-none bg-white border border-slate-300 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  {activeTrips.map(trip => (
-                    <option key={trip.id} value={trip.id}>
-                      {trip.trip_code} - {trip.vessel_name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            )}
-            
-            <button 
-              onClick={loadActiveTrips}
-              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Refresh trips"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-          
-          {activeTrips.length === 0 && (
-            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-amber-800">No Active Trips</p>
-                <p className="text-sm text-amber-600">There are no active trips available. Trips must be approved before packing crates.</p>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 

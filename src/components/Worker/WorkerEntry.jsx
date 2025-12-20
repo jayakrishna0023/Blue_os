@@ -404,31 +404,7 @@ const WorkerEntry = () => {
                                 </div>
                             </div>
 
-                            {/* Crate Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Assign to Crate</label>
-                                <div className="relative group">
-                                    <Box className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                    <select
-                                        value={formData.crateId}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, crateId: e.target.value }))}
-                                        className="input-field pl-10 text-slate-900 bg-white"
-                                    >
-                                        <option value="">-- No Crate --</option>
-                                        {crates.length === 0 && (
-                                            <option value="" disabled>No crates for this trip. Create crates in Crate Management.</option>
-                                        )}
-                                        {crates.map(crate => (
-                                        <option key={crate.id} value={crate.id}>
-                                            {crate.crate_qr || `Crate #${crate.id}`} ({crate.fish_count || 0} fish, {crate.total_weight || 0}kg)
-                                        </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {crates.length === 0 && selectedTripId && (
-                                    <p className="text-xs text-amber-600 mt-1">No crates available. Create new crates in Crate Management first.</p>
-                                )}
-                            </div>
+
                         </div>
 
                         {/* Quality Grade */}
