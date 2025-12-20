@@ -26,30 +26,46 @@ const CaptainDashboard = () => {
     const checkActiveTrip = async () => {
       // 1. Load from storage first for instant UI
       const savedTrip = sessionStorage.getItem('currentTrip');
+      let localTrip = null;
+      
       if (savedTrip) {
-        const parsed = JSON.parse(savedTrip);
-        setCurrentTrip(parsed);
-        setActiveTab('species'); // Default to species if trip exists
-        
-        // 2. Re-validate with server to get latest status
-        if (user?.id) {
-            try {
-                const response = await mainAPI.getCaptainTrips(null, user.id);
-                if (response.success && response.trips) {
-                    // Find our trip
-                    const serverTrip = response.trips.find(t => t.id === parsed.id);
-                    if (serverTrip) {
-                        // Update local state if status or code changed
-                        if (serverTrip.status !== parsed.status || serverTrip.trip_code !== parsed.trip_code) {
-                            console.log('Updating trip from server:', serverTrip);
-                            setCurrentTrip(serverTrip);
-                            sessionStorage.setItem('currentTrip', JSON.stringify(serverTrip));
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to validate trip with server', e);
+        localTrip = JSON.parse(savedTrip);
+        // Only use if still active
+        if (localTrip.status === 'active') {
+          setCurrentTrip(localTrip);
+          setActiveTab('species');
+        }
+      }
+      
+      // 2. ALWAYS check server for active trip (cross-device sync)
+      if (user?.id) {
+        try {
+          const response = await mainAPI.getCaptainTrips(null, user.id);
+          if (response.success && response.trips) {
+            // Find any active trip for this captain
+            const activeTrip = response.trips.find(t => t.status === 'active' && !t.trip_code?.startsWith('REQ-'));
+            
+            if (activeTrip) {
+              // If we have a different trip locally or no trip, update
+              if (!localTrip || localTrip.id !== activeTrip.id || localTrip.status !== activeTrip.status) {
+                console.log('Syncing active trip from server:', activeTrip);
+                setCurrentTrip(activeTrip);
+                sessionStorage.setItem('currentTrip', JSON.stringify(activeTrip));
+                setActiveTab('species');
+              }
+            } else if (localTrip) {
+              // Server says no active trip, but we have one locally - check if it was completed
+              const serverTrip = response.trips.find(t => t.id === localTrip.id);
+              if (serverTrip && serverTrip.status !== 'active') {
+                console.log('Trip completed on another device, clearing local state');
+                setCurrentTrip(null);
+                sessionStorage.removeItem('currentTrip');
+                setActiveTab('trip');
+              }
             }
+          }
+        } catch (e) {
+          console.warn('Failed to validate trip with server', e);
         }
       }
     };
