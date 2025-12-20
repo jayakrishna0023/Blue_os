@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { mainAPI, fisherAPI } from '../../services/api';
 import { generateTripCode, getCurrentUser } from '../../services/utils';
 import { FISHING_METHODS, PORTS, TARGET_SPECIES } from '../../services/constants';
@@ -7,6 +7,10 @@ import QRScannerModal from '../Shared/QRScannerModal';
 import CameraModal from '../Shared/CameraModal';
 import { useToast } from '../Shared/Toast';
 
+// Storage key for form data persistence
+const TRIP_FORM_STORAGE_KEY = 'blueos_trip_form_draft';
+const TRIP_CREW_STORAGE_KEY = 'blueos_trip_crew_draft';
+
 const TripRegistration = ({ onTripCreated, existingTrip }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -14,25 +18,80 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [activeCameraField, setActiveCameraField] = useState(null); // 'vesselImage' or 'gearImage'
-  const [crewList, setCrewList] = useState([]); // Array of { id, name, mobile }
-
-  const [formData, setFormData] = useState({
-    tripCode: '',
-    fishingMethod: '',
-    departurePort: '',
-    tripStart: new Date().toISOString().slice(0, 16),
-    expectedReturn: '',
-    targetSpecies: '',
-    vesselImage: null,
-    gearImage: null
+  
+  // Load saved crew list from storage
+  const [crewList, setCrewList] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(TRIP_CREW_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
+
+  // Load saved form data from storage
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(TRIP_FORM_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          tripCode: parsed.tripCode || '',
+          fishingMethod: parsed.fishingMethod || '',
+          departurePort: parsed.departurePort || '',
+          tripStart: parsed.tripStart || new Date().toISOString().slice(0, 16),
+          expectedReturn: parsed.expectedReturn || '',
+          targetSpecies: parsed.targetSpecies || '',
+          vesselImage: parsed.vesselImage || null,
+          gearImage: parsed.gearImage || null
+        };
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return {
+      tripCode: '',
+      fishingMethod: '',
+      departurePort: '',
+      tripStart: new Date().toISOString().slice(0, 16),
+      expectedReturn: '',
+      targetSpecies: '',
+      vesselImage: null,
+      gearImage: null
+    };
+  });
+
+  // Save form data to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(TRIP_FORM_STORAGE_KEY, JSON.stringify(formData));
+    } catch (e) {
+      console.warn('Failed to save form data:', e);
+    }
+  }, [formData]);
+
+  // Save crew list to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(TRIP_CREW_STORAGE_KEY, JSON.stringify(crewList));
+    } catch (e) {
+      console.warn('Failed to save crew list:', e);
+    }
+  }, [crewList]);
+
+  // Clear saved drafts after successful submission
+  const clearDrafts = useCallback(() => {
+    sessionStorage.removeItem(TRIP_FORM_STORAGE_KEY);
+    sessionStorage.removeItem(TRIP_CREW_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     if (existingTrip) {
       setFormData(prev => ({ ...prev, ...existingTrip }));
-      // Note: If we had crew data in existingTrip, we would populate crewList here
+      // Clear drafts if we have an existing trip
+      clearDrafts();
     }
-  }, [existingTrip]);
+  }, [existingTrip, clearDrafts]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,26 +136,14 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
             mobile: fisher.mobile_number,
             scannedAt: new Date() 
           }]);
+          toast.success(`Added ${fisher.full_name} to crew`, 'Crew Added');
         } else {
-          // Fallback: If fisher not found, store QR code for backend resolution
-          const mockName = `Fisher ${data.slice(-4)}`;
-          setCrewList(prev => [...prev, { 
-            id: data, // QR code as fallback (backend will resolve)
-            qrCode: data,
-            name: mockName, 
-            scannedAt: new Date() 
-          }]);
+          // If fisher not found, alert the user
+          toast.error('Fisher not found in registry. Please check the QR code.', 'Invalid QR');
         }
       } catch (error) {
         console.error('Error resolving fisher QR:', error);
-        // Fallback on error
-        const mockName = `Fisher ${data.slice(-4)}`;
-        setCrewList(prev => [...prev, { 
-          id: data, 
-          qrCode: data,
-          name: mockName, 
-          scannedAt: new Date() 
-        }]);
+        toast.error('Failed to verify fisher. Please try again.', 'Network Error');
       }
       
       setShowScanner(false);
@@ -137,6 +184,9 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
 
       const response = await mainAPI.saveTrip(tripData);
       if (response.success) {
+        // Clear drafts on successful submission
+        clearDrafts();
+        setCrewList([]);
         onTripCreated({ ...tripData, id: response.tripId });
       } else {
         setError(response.message || 'Failed to save trip');
@@ -166,11 +216,11 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
         <div className="grid grid-cols-2 gap-3 sm:gap-4 text-left max-w-md mx-auto bg-slate-50 p-3 sm:p-4 rounded-xl">
           <div>
             <p className="text-[10px] sm:text-xs text-slate-400">Trip Code</p>
-            <p className="font-mono font-medium text-sm sm:text-base truncate">{existingTrip.trip_code || 'Pending'}</p>
+            <p className="font-mono font-bold text-sm sm:text-base truncate text-black">{existingTrip.trip_code || existingTrip.tripCode || 'Pending'}</p>
           </div>
           <div>
             <p className="text-[10px] sm:text-xs text-slate-400">Status</p>
-            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${existingTrip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold text-black ${existingTrip.status === 'active' ? 'bg-green-100' : 'bg-yellow-100'}`}>
               {existingTrip.status === 'active' ? 'Active' : 'Pending'}
             </span>
           </div>
@@ -235,7 +285,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                 name="fishingMethod"
                 value={formData.fishingMethod}
                 onChange={handleChange}
-                className="input-field"
+                className="input-field text-slate-900 bg-white"
               >
                 <option value="">Select Method</option>
                 {FISHING_METHODS.map(method => (
@@ -253,7 +303,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                   name="targetSpecies"
                   value={formData.targetSpecies}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 text-slate-900 bg-white"
                 >
                   <option value="">Select Species</option>
                   {TARGET_SPECIES.map(species => (
@@ -272,7 +322,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                   name="departurePort"
                   value={formData.departurePort}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 text-slate-900 bg-white"
                 >
                   <option value="">Select Port</option>
                   {PORTS.map(port => (
@@ -292,7 +342,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                   name="tripStart"
                   value={formData.tripStart}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 text-slate-900 bg-white"
                   required
                 />
               </div>
@@ -307,7 +357,7 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                   name="expectedReturn"
                   value={formData.expectedReturn}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 text-slate-900 bg-white"
                   required
                 />
               </div>
@@ -319,8 +369,13 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
                 <label className="block text-sm font-bold text-slate-700">Crew Members ({crewList.length})</label>
                 <button
                   type="button"
-                  onClick={() => setShowScanner(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  disabled={showScanner}
+                  onClick={() => {
+                    if (!showScanner) {
+                      setShowScanner(true);
+                    }
+                  }}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <QrCode className="w-4 h-4" />
                   Scan Crew QR

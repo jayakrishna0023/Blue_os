@@ -24,14 +24,14 @@ const Login = () => {
 
   // Clear any stale state on mount
   useEffect(() => {
-    const user = localStorage.getItem('user');
+    const user = sessionStorage.getItem('user');
     if (user) {
       console.log('Found existing user session:', user);
     }
   }, []);
 
   const handleClearSession = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.reload();
   };
 

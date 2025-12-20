@@ -237,25 +237,42 @@ const AdminDashboard = () => {
   const [tripCrew, setTripCrew] = useState([]);
 
   const handleViewTripDetails = async (trip) => {
+    console.log("Viewing details for trip:", trip);
     setSelectedTrip(trip);
     setLoadingDetails(true);
     setTripCrew([]);
+    setTripDetails([]);
     try {
-      // Fetch both catch logs and crew in parallel
+      // Fetch catch logs, crew, and fresh trip stats in parallel
+      console.log(`Fetching details for Trip ID: ${trip.id}`);
       const [logsResponse, crewResponse] = await Promise.all([
         adminAPI.getTripDetails(trip.id),
         mainAPI.getTripCrew(trip.id)
       ]);
       
-      if (logsResponse.success) {
-        setTripDetails(logsResponse.logs);
-      } else {
-        setTripDetails([]);
-      }
+      console.log("Logs Response:", logsResponse);
+      console.log("Crew Response:", crewResponse);
+
+      // Set catch logs
+      const logs = logsResponse.success ? logsResponse.logs || [] : [];
+      setTripDetails(logs);
       
-      if (crewResponse.success) {
-        setTripCrew(crewResponse.crew || []);
-      }
+      // Set crew
+      const crew = crewResponse.success ? crewResponse.crew || [] : [];
+      setTripCrew(crew);
+      
+      // Update the selectedTrip with fresh calculated stats from the fetched data
+      const totalCatchWeight = logs.reduce((sum, log) => sum + (parseFloat(log.weight_kg) || 0), 0);
+      const speciesSet = new Set(logs.map(log => log.species_name).filter(Boolean));
+      
+      setSelectedTrip(prev => ({
+        ...prev,
+        crew_count: crew.length,
+        total_catch: Math.round(totalCatchWeight * 100) / 100,
+        catch_count: logs.length,
+        species_count: speciesSet.size
+      }));
+      
     } catch (error) {
       console.error("Failed to load trip details", error);
       setTripDetails([]);
@@ -488,13 +505,23 @@ This is a system-generated document from BlueOS.
         </aside>
 
         <main className="flex-1 md:ml-64 p-8">
-          <button 
-            onClick={closeTripDetails}
-            className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Trip List
-          </button>
+          <div className="flex justify-between items-center mb-6">
+            <button 
+              onClick={closeTripDetails}
+              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              Back to Trip List
+            </button>
+            <button 
+              onClick={() => handleViewTripDetails(selectedTrip)}
+              disabled={loadingDetails}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingDetails ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
 
           <div className="space-y-6 animate-fade-in">
             {/* Trip Header Info */}
@@ -508,13 +535,13 @@ This is a system-generated document from BlueOS.
                 </div>
                 <div className="text-right">
                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold mb-2 ${
-                    selectedTrip.trip_status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    selectedTrip.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'
                   }`}>
-                    {selectedTrip.trip_status ? selectedTrip.trip_status.toUpperCase() : 'UNKNOWN'}
+                    {selectedTrip.status ? selectedTrip.status.toUpperCase() : 'UNKNOWN'}
                   </span>
                   <p className="text-sm text-slate-500 flex items-center justify-end gap-2">
                     <Calendar className="w-3 h-3" />
-                    {new Date(selectedTrip.departure_date || selectedTrip.trip_start).toLocaleDateString()}
+                    {new Date(selectedTrip.departure_date || selectedTrip.created_at).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -526,24 +553,48 @@ This is a system-generated document from BlueOS.
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Crew</p>
-                  <p className="font-medium text-slate-300">{selectedTrip.crew_count || 'N/A'}</p>
+                  <p className="font-medium text-slate-300">{selectedTrip.crew_count || tripCrew.length || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Total Expenses</p>
-                  <p className="font-medium text-slate-300">₹{selectedTrip.total_expenses || '0'}</p>
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Total Catch</p>
+                  <p className="font-medium text-emerald-400">{selectedTrip.total_catch || (tripDetails ? tripDetails.reduce((sum, log) => sum + (parseFloat(log.weight_kg) || 0), 0).toFixed(2) : 0)} kg</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Fish Tagged</p>
+                  <p className="font-medium text-blue-400">{selectedTrip.catch_count || (tripDetails ? tripDetails.length : 0)}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-800">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Fishing Method</p>
+                  <p className="font-medium text-slate-300">{selectedTrip.fishing_method || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Target Species</p>
                   <p className="font-medium text-slate-300">{selectedTrip.target_species || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Expenses</p>
+                  <p className="font-medium text-slate-300">₹{selectedTrip.total_expenses || '0'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-1">Species Count</p>
+                  <p className="font-medium text-purple-400">{selectedTrip.species_count || (tripDetails ? new Set(tripDetails.map(log => log.species_name).filter(Boolean)).size : 0)}</p>
                 </div>
               </div>
             </div>
 
             {/* Catch Logs Table */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <h3 className="font-bold text-lg text-white mb-6 flex items-center gap-2">
-                <Fish className="w-5 h-5 text-blue-400" />
-                Catch Log Details
+              <h3 className="font-bold text-lg text-white mb-6 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Fish className="w-5 h-5 text-blue-400" />
+                  Catch Log Details ({tripDetails ? tripDetails.length : 0})
+                </span>
+                <span className="text-sm font-normal text-slate-400">
+                  Total: {tripDetails ? tripDetails.reduce((sum, log) => sum + (parseFloat(log.weight_kg) || 0), 0).toFixed(2) : 0} kg
+                </span>
               </h3>
               
               {loadingDetails ? (
@@ -594,7 +645,14 @@ This is a system-generated document from BlueOS.
                                 {log.location_name}
                             </td>
                             <td className="p-4 text-slate-400 font-mono text-xs">
-                                {new Date(log.timestamp).toLocaleString()}
+                                {log.timestamp ? new Date(log.timestamp).toLocaleString('en-IN', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: '2-digit',
+                                    hour: '2-digit', 
+                                    minute: '2-digit',
+                                    hour12: false 
+                                }) : 'N/A'}
                             </td>
                           </tr>
                         ))
@@ -616,22 +674,55 @@ This is a system-generated document from BlueOS.
                 Crew Members ({tripCrew.length})
               </h3>
               
-              {tripCrew.length > 0 ? (
+              {loadingDetails ? (
+                <div className="text-center py-12 text-slate-500 flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    Loading crew data...
+                </div>
+              ) : tripCrew.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {tripCrew.map((member, idx) => (
-                    <div key={idx} className="bg-slate-800/50 rounded-xl p-4 flex items-center gap-3 border border-slate-700">
-                      <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                        <Users className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white truncate">{member.name || 'Unknown'}</p>
-                        <p className="text-xs text-slate-400">{member.mobile || 'No contact'}</p>
+                    <div key={idx} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 hover:border-purple-500/50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500/30 to-blue-500/30 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-lg font-bold text-purple-300">
+                            {(member.name || 'U').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-white truncate">{member.name || 'Unknown Fisher'}</p>
+                          <p className="text-xs text-blue-400 mt-0.5">ID: #{member.id || member.fisherId}</p>
+                          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                            📞 {member.mobile || 'No contact'}
+                          </p>
+                          {member.homePort && member.homePort !== 'N/A' && (
+                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                              📍 {member.homePort}
+                            </p>
+                          )}
+                          {member.qrCode && (
+                            <p className="text-xs text-purple-400/70 mt-1 font-mono truncate">
+                              {member.qrCode}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          member.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 
+                          member.status === 'unknown' ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-slate-500/20 text-slate-400'
+                        }`}>
+                          {member.status || 'active'}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-slate-500 py-8">No crew members assigned to this trip.</p>
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-500">No crew members assigned to this trip.</p>
+                  <p className="text-xs text-slate-600 mt-1">Crew members are added during trip registration</p>
+                </div>
               )}
             </div>
           </div>
@@ -895,34 +986,45 @@ This is a system-generated document from BlueOS.
                     <div className="space-y-6">
                         <div className="flex justify-between items-center">
                             <span className="text-slate-400">Total Trips</span>
-                            <span className="text-2xl font-bold text-white">{vesselTrips.length}</span>
+                            <span className="text-2xl font-bold text-white">{selectedVessel.total_trips || vesselTrips.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Active Trips</span>
+                            <span className="text-2xl font-bold text-emerald-400">{selectedVessel.active_trips || 0}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-slate-400">Total Catch</span>
                             <span className="text-2xl font-bold text-white">
-                                {vesselTrips.reduce((acc, t) => acc + (t.total_catch || 0), 0)} kg
+                                {selectedVessel.total_catch_weight || vesselTrips.reduce((acc, t) => acc + (t.total_catch || 0), 0)} kg
                             </span>
                         </div>
-                        <div className="w-full bg-slate-800 rounded-full h-2 mt-4">
-                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: '75%' }}></div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Fish Tagged</span>
+                            <span className="text-2xl font-bold text-blue-400">{selectedVessel.total_catch_count || 0}</span>
                         </div>
-                        <p className="text-xs text-slate-500 text-center">Activity Level: High</p>
+                        <div className="w-full bg-slate-800 rounded-full h-2 mt-4">
+                            <div className="bg-gradient-to-r from-blue-500 to-emerald-500 h-2 rounded-full" style={{ width: `${Math.min((selectedVessel.total_trips || 0) * 10, 100)}%` }}></div>
+                        </div>
+                        <p className="text-xs text-slate-500 text-center">Activity Level: {(selectedVessel.total_trips || 0) > 5 ? 'High' : (selectedVessel.total_trips || 0) > 2 ? 'Medium' : 'Low'}</p>
                     </div>
                 </div>
             </div>
 
             {/* Trip History Table */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <h3 className="text-lg font-bold text-white mb-6">Trip History</h3>
+                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                    <Anchor className="w-5 h-5 text-blue-400" />
+                    Trip History ({vesselTrips.length})
+                </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="bg-slate-950/50 text-slate-400 border-b border-slate-800">
                             <tr>
                                 <th className="px-6 py-4 text-sm font-medium">Trip Code</th>
                                 <th className="px-6 py-4 text-sm font-medium">Date</th>
-                                <th className="px-6 py-4 text-sm font-medium">Status</th>
+                                <th className="px-6 py-4 text-sm font-medium">Crew</th>
                                 <th className="px-6 py-4 text-sm font-medium">Catch</th>
-                                <th className="px-6 py-4 text-sm font-medium">Expenses</th>
+                                <th className="px-6 py-4 text-sm font-medium">Status</th>
                                 <th className="px-6 py-4 text-sm font-medium">Actions</th>
                             </tr>
                         </thead>
@@ -932,22 +1034,32 @@ This is a system-generated document from BlueOS.
                                     <tr key={trip.id} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="px-6 py-4 font-mono text-xs text-blue-400">{trip.trip_code}</td>
                                         <td className="px-6 py-4 text-slate-300">
-                                            {new Date(trip.trip_start).toLocaleDateString()}
+                                            {new Date(trip.departure_date || trip.trip_start || trip.created_at).toLocaleDateString()}
                                             <span className="block text-xs text-slate-500">
-                                                {new Date(trip.trip_start).toLocaleTimeString()}
+                                                {trip.fishing_method || 'N/A'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1">
+                                                <Users className="w-4 h-4 text-purple-400" />
+                                                <span className="text-slate-300">{trip.crew_count || 0}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-medium">{trip.total_catch || 0} kg</span>
+                                                <span className="text-xs text-slate-500">{trip.catch_count || 0} fish</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                trip.trip_status === 'active' 
+                                                (trip.status || trip.trip_status) === 'active' 
                                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
                                                 : 'bg-slate-800 text-slate-400 border border-slate-700'
                                             }`}>
-                                                {trip.trip_status}
+                                                {trip.status || trip.trip_status || 'unknown'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-300">{trip.total_catch || 0} kg</td>
-                                        <td className="px-6 py-4 text-slate-300">₹{trip.total_expenses || 0}</td>
                                         <td className="px-6 py-4">
                                             <button 
                                                 onClick={() => handleViewTripDetails(trip)}
@@ -1080,6 +1192,26 @@ This is a system-generated document from BlueOS.
               <StatCard title="Fish Tagged" value={stats.fish} icon={QrCode} color="bg-amber-500" />
             </div>
 
+            {/* Additional Stats Row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:border-cyan-500/30 transition-all">
+                <p className="text-slate-400 text-xs sm:text-sm font-medium mb-1">Total Catch Weight</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{stats.totalCatchWeight || 0} <span className="text-sm text-slate-400">kg</span></h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:border-purple-500/30 transition-all">
+                <p className="text-slate-400 text-xs sm:text-sm font-medium mb-1">Registered Fishers</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{stats.fishers || 0}</h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:border-pink-500/30 transition-all">
+                <p className="text-slate-400 text-xs sm:text-sm font-medium mb-1">Total Trips</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{stats.totalTrips || 0}</h3>
+              </div>
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:border-yellow-500/30 transition-all">
+                <p className="text-slate-400 text-xs sm:text-sm font-medium mb-1">Pending Approvals</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-yellow-400">{stats.pendingRegistrations || 0}</h3>
+              </div>
+            </div>
+
             {/* Recent Activity */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-bold mb-4 text-white">Recent Trips</h3>
@@ -1089,27 +1221,37 @@ This is a system-generated document from BlueOS.
                     <tr className="text-slate-400 text-sm border-b border-slate-800">
                       <th className="pb-4 font-medium">Trip Code</th>
                       <th className="pb-4 font-medium">Vessel</th>
+                      <th className="pb-4 font-medium">Crew</th>
+                      <th className="pb-4 font-medium">Catch</th>
                       <th className="pb-4 font-medium">Status</th>
-                      <th className="pb-4 font-medium">Date</th>
                       <th className="pb-4 font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm">
                     {trips.slice(0, 5).map(trip => (
                       <tr key={trip.id} className="border-b border-slate-800 last:border-0 hover:bg-slate-800/30 transition-colors">
-                        <td className="py-4 font-mono text-blue-400">{trip.trip_code}</td>
+                        <td className="py-4">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-blue-400">{trip.trip_code}</span>
+                            <span className="text-xs text-slate-500">{new Date(trip.departure_date || trip.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </td>
                         <td className="py-4 font-medium text-slate-200">{trip.vessel_name}</td>
+                        <td className="py-4 text-slate-300">{trip.crew_count || 0}</td>
+                        <td className="py-4">
+                          <div className="flex flex-col">
+                            <span className="text-white font-medium">{trip.total_catch || 0} kg</span>
+                            <span className="text-xs text-slate-500">{trip.catch_count || 0} fish</span>
+                          </div>
+                        </td>
                         <td className="py-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            trip.trip_status === 'active' 
+                            trip.status === 'active' 
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
                               : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}>
-                            {trip.trip_status}
+                            {trip.status}
                           </span>
-                        </td>
-                        <td className="py-4 text-slate-400">
-                          {new Date(trip.trip_start).toLocaleDateString()}
                         </td>
                         <td className="py-4">
                           <button 
@@ -1164,8 +1306,8 @@ This is a system-generated document from BlueOS.
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Vessel Name</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Reg Number</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Owner</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Port</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Type</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Trips</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Total Catch</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
                   </tr>
                 </thead>
@@ -1177,12 +1319,25 @@ This is a system-generated document from BlueOS.
                             <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">
                                 <Ship className="w-4 h-4" />
                             </div>
-                            {vessel.vessel_name}
+                            <div>
+                              <span className="block">{vessel.vessel_name || vessel.name}</span>
+                              <span className="text-xs text-slate-500">{vessel.home_port || 'N/A'}</span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-slate-400 font-mono text-xs">{vessel.registration_number}</td>
                           <td className="px-6 py-4 text-slate-300">{vessel.owner_name}</td>
-                          <td className="px-6 py-4 text-slate-300">{vessel.home_port}</td>
-                          <td className="px-6 py-4 text-slate-300">{vessel.vessel_type}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-white font-medium">{vessel.total_trips || 0}</span>
+                              <span className="text-xs text-emerald-400">{vessel.active_trips || 0} active</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-white font-medium">{vessel.total_catch_weight || 0} kg</span>
+                              <span className="text-xs text-slate-500">{vessel.total_catch_count || 0} fish</span>
+                            </div>
+                          </td>
                           <td className="px-6 py-4">
                             <button 
                               onClick={() => handleViewVesselDetails(vessel)}
@@ -1211,6 +1366,14 @@ This is a system-generated document from BlueOS.
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-white">Trip Management</h2>
                 <div className="flex gap-2">
+                    <button
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </button>
                     <div className="relative">
                         <Search className="w-4 h-4 absolute left-3 top-3 text-slate-500" />
                         <input 
@@ -1241,7 +1404,8 @@ This is a system-generated document from BlueOS.
                   <tr>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Trip Code</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Vessel</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Method</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Crew</th>
+                    <th className="px-6 py-4 text-sm font-medium text-slate-400">Catch</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Status</th>
                     <th className="px-6 py-4 text-sm font-medium text-slate-400">Actions</th>
                   </tr>
@@ -1250,9 +1414,30 @@ This is a system-generated document from BlueOS.
                   {filteredTrips.length > 0 ? (
                     filteredTrips.map((trip) => (
                     <tr key={trip.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs text-blue-400">{trip.trip_code}</td>
-                      <td className="px-6 py-4 font-medium text-slate-200">{trip.vessel_name}</td>
-                      <td className="px-6 py-4 text-slate-400">{trip.fishing_method}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs text-blue-400">{trip.trip_code}</span>
+                          <span className="text-xs text-slate-500">{new Date(trip.departure_date || trip.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-slate-200">{trip.vessel_name}</span>
+                          <span className="text-xs text-slate-500">{trip.fishing_method || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-4 h-4 text-purple-400" />
+                          <span className="text-slate-300 font-medium">{trip.crew_count || 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-white font-medium">{trip.total_catch || 0} kg</span>
+                          <span className="text-xs text-slate-500">{trip.catch_count || 0} fish • {trip.species_count || 0} species</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         {(() => {
                           const isPending = trip.trip_code?.startsWith('REQ-') || trip.status === 'pending';

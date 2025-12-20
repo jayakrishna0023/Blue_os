@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Package, Plus, Trash2, QrCode, Save, Search, X, AlertTriangle, Ship, RefreshCw, ChevronDown } from 'lucide-react';
 import QRScannerModal from '../Shared/QRScannerModal';
 import { mainAPI } from '../../services/api';
 import { useToast } from '../Shared/Toast';
 import { getCurrentUser } from '../../services/utils';
+
+// Storage keys for persistence
+const CRATE_FISH_STORAGE_KEY = 'blueos_crate_fish_draft';
+const CRATE_TRIP_STORAGE_KEY = 'blueos_crate_trip_selection';
 
 const CrateManagement = () => {
   const toast = useToast();
@@ -11,16 +15,55 @@ const CrateManagement = () => {
   
   // Trip selection
   const [activeTrips, setActiveTrips] = useState([]);
-  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [selectedTrip, setSelectedTrip] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(CRATE_TRIP_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loadingTrips, setLoadingTrips] = useState(true);
   
-  // Crate management
+  // Crate management - load saved fish from storage
   const [viewMode, setViewMode] = useState('list'); // list, create, inspect
-  const [currentCrateFish, setCurrentCrateFish] = useState([]);
+  const [currentCrateFish, setCurrentCrateFish] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(CRATE_FISH_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState('add-fish'); // add-fish, inspect-crate
   const [inspectedCrate, setInspectedCrate] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Save current crate fish to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CRATE_FISH_STORAGE_KEY, JSON.stringify(currentCrateFish));
+    } catch (e) {
+      console.warn('Failed to save crate fish:', e);
+    }
+  }, [currentCrateFish]);
+
+  // Save selected trip to sessionStorage
+  useEffect(() => {
+    try {
+      if (selectedTrip) {
+        sessionStorage.setItem(CRATE_TRIP_STORAGE_KEY, JSON.stringify(selectedTrip));
+      }
+    } catch (e) {
+      console.warn('Failed to save trip selection:', e);
+    }
+  }, [selectedTrip]);
+
+  // Clear drafts after sealing crate
+  const clearCrateDraft = useCallback(() => {
+    sessionStorage.removeItem(CRATE_FISH_STORAGE_KEY);
+  }, []);
 
   useEffect(() => {
     loadActiveTrips();
@@ -32,7 +75,7 @@ const CrateManagement = () => {
       const response = await mainAPI.getActiveTripsForCrates();
       if (response.success && response.trips) {
         setActiveTrips(response.trips);
-        // Auto-select first trip if available
+        // Auto-select first trip if available and no saved selection
         if (response.trips.length > 0 && !selectedTrip) {
           setSelectedTrip(response.trips[0]);
         }
@@ -118,6 +161,8 @@ const CrateManagement = () => {
             qrImageUrl: response.qrImageUrl
         });
         setViewMode('inspect');
+        // Clear draft and reset
+        clearCrateDraft();
         setCurrentCrateFish([]);
         toast.success('Crate sealed successfully!', 'Success');
       } else {
@@ -203,7 +248,7 @@ const CrateManagement = () => {
                     const trip = activeTrips.find(t => t.id === parseInt(e.target.value));
                     setSelectedTrip(trip);
                   }}
-                  className="appearance-none bg-white border border-slate-300 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="appearance-none bg-white border border-slate-300 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   {activeTrips.map(trip => (
                     <option key={trip.id} value={trip.id}>

@@ -3,6 +3,20 @@ import axios from 'axios';
 // Use relative path '/api' to trigger the Vite proxy
 const API_URL = '/api';
 
+// Generate a unique browser/tab identifier
+const getBrowserId = () => {
+  let browserId = sessionStorage.getItem('blueos_browser_id');
+  if (!browserId) {
+    browserId = 'browser_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('blueos_browser_id', browserId);
+  }
+  return browserId;
+};
+
+// Session storage keys (unique per session)
+const getSessionKey = (sessionId) => `blueos_session_${sessionId}`;
+const getCurrentSessionIdKey = () => `blueos_current_session_${getBrowserId()}`;
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -10,12 +24,99 @@ const api = axios.create({
   },
 });
 
-const saveUserSession = (user) => {
-  const userString = JSON.stringify(user);
-  let saved = false;
-  try { localStorage.setItem('user', userString); saved = true; console.log('Saved to localStorage'); } catch (e) { console.warn('localStorage failed', e); }
-  if (!saved) { try { sessionStorage.setItem('user', userString); saved = true; console.log('Saved to sessionStorage'); } catch (e) { console.warn('sessionStorage failed', e); } }
-  if (!saved) { window.currentUser = user; console.log('Saved to memory'); }
+// Add auth token to all requests
+api.interceptors.request.use((config) => {
+  const session = getCurrentSession();
+  if (session?.token) {
+    config.headers.Authorization = `Bearer ${session.token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+// Handle 401 responses (session expired)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Session expired, clear and redirect to login
+      clearSession();
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Get current session data
+const getCurrentSession = () => {
+  try {
+    const sessionId = sessionStorage.getItem(getCurrentSessionIdKey());
+    if (!sessionId) return null;
+    
+    const sessionData = sessionStorage.getItem(getSessionKey(sessionId));
+    if (!sessionData) return null;
+    
+    return JSON.parse(sessionData);
+  } catch (e) {
+    console.warn('Error reading session:', e);
+    return null;
+  }
+};
+
+// Save session data
+const saveSession = (token, sessionId, user) => {
+  try {
+    const sessionData = {
+      token,
+      sessionId,
+      user,
+      createdAt: new Date().toISOString(),
+      browserId: getBrowserId()
+    };
+    
+    // Store session data with unique key
+    sessionStorage.setItem(getSessionKey(sessionId), JSON.stringify(sessionData));
+    
+    // Mark this as the current session for this browser
+    sessionStorage.setItem(getCurrentSessionIdKey(), sessionId);
+    
+    // Also store user in legacy format for backwards compatibility
+    sessionStorage.setItem('user', JSON.stringify(user));
+    
+    console.log('Session saved:', sessionId);
+  } catch (e) {
+    console.error('Error saving session:', e);
+    // Fallback to memory
+    window.currentSession = { token, sessionId, user };
+    window.currentUser = user;
+  }
+};
+
+// Clear current session
+const clearSession = () => {
+  try {
+    const sessionId = sessionStorage.getItem(getCurrentSessionIdKey());
+    if (sessionId) {
+      sessionStorage.removeItem(getSessionKey(sessionId));
+    }
+    sessionStorage.removeItem(getCurrentSessionIdKey());
+    sessionStorage.removeItem('user');
+    window.currentSession = null;
+    window.currentUser = null;
+  } catch (e) {
+    console.error('Error clearing session:', e);
+  }
+};
+
+// Validate current session with server
+const validateSession = async () => {
+  try {
+    const response = await api.get('/auth/validate');
+    return response.data.valid === true;
+  } catch (e) {
+    return false;
+  }
 };
 
 // Auth API
@@ -25,7 +126,7 @@ export const authAPI = {
       const response = await api.post('/auth/login', { username, password });
       console.log('Login API Response:', response.data);
       if (response.data.success && response.data.user) {
-        saveUserSession(response.data.user);
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
       }
       return response.data;
     } catch (error) {
@@ -33,23 +134,23 @@ export const authAPI = {
       throw error;
     }
   },
-  logout: () => {
+  logout: async () => {
     try {
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('user');
-      window.currentUser = null;
-      window.location.href = '/';
+      // Notify server to invalidate session
+      await api.post('/auth/logout');
     } catch (e) {
-      console.error('Logout error:', e);
-      window.location.href = '/';
+      console.warn('Logout API error:', e);
     }
+    clearSession();
+    window.location.href = '/';
   },
+  validateSession,
   fisherLogin: async (mobile) => {
     try {
       const response = await api.post('/auth/fisher/login', { mobile });
       console.log('Fisher Login API Response:', response.data);
       if (response.data.success && !response.data.isNewUser && response.data.user) {
-        saveUserSession(response.data.user);
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
       }
       return response.data;
     } catch (error) {
@@ -62,13 +163,17 @@ export const authAPI = {
       const response = await api.post('/fishers', data);
       console.log('Fisher Registration Response:', response.data);
       if (response.data.success && response.data.user) {
-        saveUserSession(response.data.user);
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
       }
       return response.data;
     } catch (error) {
       console.error('Fisher Registration Error:', error);
       throw error;
     }
+  },
+  getSessions: async () => {
+    const response = await api.get('/auth/sessions');
+    return response.data;
   }
 };
 
@@ -137,6 +242,17 @@ export const mainAPI = {
     return response.data;
   },
 
+  // Validate if QR code is already used
+  validateQR: async (qrCode) => {
+    try {
+      const response = await api.get(`/catch/validate-qr/${qrCode}`);
+      return response.data;
+    } catch (error) {
+      console.error('QR validation error:', error);
+      return { success: false, isUsed: false };
+    }
+  },
+
   // Catch Logging
   saveSpecies: async (speciesData) => {
     // Transform frontend data to match backend expectation
@@ -180,8 +296,9 @@ export const mainAPI = {
   },
   
   // Crate Management
-  getCrates: async () => {
-    const response = await api.get('/crates');
+  getCrates: async (tripId) => {
+    const params = tripId ? `?tripId=${tripId}` : '';
+    const response = await api.get(`/crates${params}`);
     return response.data;
   },
   verifyFishForCrate: async (qrCode) => {
@@ -329,9 +446,27 @@ export const adminAPI = {
 
 // Helper Functions
 export const getCurrentUser = () => {
+  // First try to get from current session
+  const session = getCurrentSession();
+  if (session?.user) {
+    return session.user;
+  }
+  
+  // Fallback to legacy storage
   try {
-    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     if (userStr) return JSON.parse(userStr);
-  } catch (e) { console.warn('Error reading user from storage', e); }
+  } catch (e) { 
+    console.warn('Error reading user from storage', e); 
+  }
+  
   return window.currentUser || null;
+};
+
+// Export session utilities for use in other components
+export const sessionUtils = {
+  getCurrentSession,
+  validateSession,
+  clearSession,
+  getBrowserId
 };

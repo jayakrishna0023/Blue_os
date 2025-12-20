@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
 import QRScannerModal from '../Shared/QRScannerModal';
 import { QrCode, Scale, CheckCircle, AlertTriangle, Fish, Box, ArrowLeft, ArrowRight, Thermometer, History, X, RefreshCw, MapPin, Calendar } from 'lucide-react';
+
+// Storage key for form data persistence
+const WORKER_FORM_STORAGE_KEY = 'blueos_worker_entry_form';
 
 const WorkerEntry = () => {
   const location = useLocation();
@@ -11,9 +14,9 @@ const WorkerEntry = () => {
   const [trips, setTrips] = useState([]);
   const [crates, setCrates] = useState([]);
   
-  // Initialize state from location or localStorage to persist context
+  // Initialize state from location or sessionStorage to persist context
   const [selectedTripId, setSelectedTripId] = useState(() => {
-    return location.state?.tripId || localStorage.getItem('worker_active_trip_id') || '';
+    return location.state?.tripId || sessionStorage.getItem('worker_active_trip_id') || '';
   });
 
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -24,17 +27,51 @@ const WorkerEntry = () => {
   const [tripManifest, setTripManifest] = useState({ pending: [], inspected: [] });
   const [scannedFishDetails, setScannedFishDetails] = useState(null);
   
-  const [formData, setFormData] = useState({
-    qrCode: '',
-    weight: '',
-    qualityGrade: 'A',
-    freshness: 'Excellent',
-    damage: '',
-    crateId: localStorage.getItem('worker_active_crate_id') || '', // Persist crate selection
-    temperature: ''
+  // Load saved form data from storage
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(WORKER_FORM_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          qrCode: parsed.qrCode || '',
+          weight: parsed.weight || '',
+          qualityGrade: parsed.qualityGrade || 'A',
+          freshness: parsed.freshness || 'Excellent',
+          damage: parsed.damage || '',
+          crateId: parsed.crateId || sessionStorage.getItem('worker_active_crate_id') || '',
+          temperature: parsed.temperature || ''
+        };
+      }
+    } catch {
+      // Ignore
+    }
+    return {
+      qrCode: '',
+      weight: '',
+      qualityGrade: 'A',
+      freshness: 'Excellent',
+      damage: '',
+      crateId: sessionStorage.getItem('worker_active_crate_id') || '',
+      temperature: ''
+    };
   });
 
   const user = getCurrentUser();
+
+  // Save form data to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(WORKER_FORM_STORAGE_KEY, JSON.stringify(formData));
+    } catch (e) {
+      console.warn('Failed to save form data:', e);
+    }
+  }, [formData]);
+
+  // Clear form after successful save
+  const clearFormDraft = useCallback(() => {
+    sessionStorage.removeItem(WORKER_FORM_STORAGE_KEY);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -93,21 +130,35 @@ const WorkerEntry = () => {
     loadData();
   }, []);
 
+  // Load crates for a specific trip
+  const loadCratesForTrip = async (tripId) => {
+    try {
+      const response = await mainAPI.getCrates(tripId);
+      if (response.success) {
+        setCrates(response.crates || []);
+      }
+    } catch (error) {
+      console.error('Error loading crates for trip:', error);
+    }
+  };
+
   // Persist Trip ID and load manifest
   useEffect(() => {
     if (selectedTripId) {
-      localStorage.setItem('worker_active_trip_id', selectedTripId);
+      sessionStorage.setItem('worker_active_trip_id', selectedTripId);
       loadTripManifest();
+      loadCratesForTrip(selectedTripId); // Load crates for this trip
       setScannedFishDetails(null); // Reset scanned details on trip change
     } else {
       setTripManifest({ pending: [], inspected: [] });
+      setCrates([]); // Clear crates when no trip selected
     }
   }, [selectedTripId]);
 
   // Persist Crate ID whenever it changes
   useEffect(() => {
     if (formData.crateId) {
-      localStorage.setItem('worker_active_crate_id', formData.crateId);
+      sessionStorage.setItem('worker_active_crate_id', formData.crateId);
     }
   }, [formData.crateId]);
 
@@ -197,6 +248,9 @@ const WorkerEntry = () => {
         // Refresh manifest
         loadTripManifest();
 
+        // Clear form draft
+        clearFormDraft();
+
         setFormData(prev => ({ 
             ...prev, 
             qrCode: '', 
@@ -250,7 +304,7 @@ const WorkerEntry = () => {
                 <select
                     value={selectedTripId}
                     onChange={(e) => setSelectedTripId(e.target.value)}
-                    className="w-full p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-700 text-sm sm:text-base"
+                    className="w-full p-2.5 sm:p-3 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-900 text-sm sm:text-base"
                 >
                     <option value="">-- Select Trip --</option>
                     {trips.length === 0 && <option disabled>No active trips</option>}
@@ -315,7 +369,7 @@ const WorkerEntry = () => {
                                         type="text"
                                         value={formData.qrCode}
                                         onChange={(e) => setFormData(prev => ({ ...prev, qrCode: e.target.value }))}
-                                        className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm sm:text-lg"
+                                        className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white border border-slate-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm sm:text-lg text-slate-900"
                                         placeholder="Scan QR..."
                                         required
                                         autoFocus
@@ -343,7 +397,7 @@ const WorkerEntry = () => {
                                         step="0.01"
                                         value={formData.weight}
                                         onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
-                                        className="input-field pl-10 text-lg font-semibold"
+                                        className="input-field pl-10 text-lg font-semibold text-slate-900 bg-white"
                                         placeholder="0.00"
                                         required
                                     />
@@ -358,16 +412,22 @@ const WorkerEntry = () => {
                                     <select
                                         value={formData.crateId}
                                         onChange={(e) => setFormData(prev => ({ ...prev, crateId: e.target.value }))}
-                                        className="input-field pl-10"
+                                        className="input-field pl-10 text-slate-900 bg-white"
                                     >
                                         <option value="">-- No Crate --</option>
+                                        {crates.length === 0 && (
+                                            <option value="" disabled>No crates for this trip. Create crates in Crate Management.</option>
+                                        )}
                                         {crates.map(crate => (
                                         <option key={crate.id} value={crate.id}>
-                                            {crate.crate_code} ({crate.status})
+                                            {crate.crate_qr || `Crate #${crate.id}`} ({crate.fish_count || 0} fish, {crate.total_weight || 0}kg)
                                         </option>
                                         ))}
                                     </select>
                                 </div>
+                                {crates.length === 0 && selectedTripId && (
+                                    <p className="text-xs text-amber-600 mt-1">No crates available. Create new crates in Crate Management first.</p>
+                                )}
                             </div>
                         </div>
 
@@ -428,7 +488,7 @@ const WorkerEntry = () => {
                             <textarea
                                 value={formData.damage}
                                 onChange={(e) => setFormData(prev => ({ ...prev, damage: e.target.value }))}
-                                className="input-field min-h-[80px] resize-none"
+                                className="input-field min-h-[80px] resize-none text-slate-900 bg-white"
                                 placeholder="Describe any visible damage (optional)..."
                             />
                         </div>
@@ -454,9 +514,18 @@ const WorkerEntry = () => {
                         <History className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
                         Manifest
                     </h3>
-                    <span className="text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
-                        {tripManifest.pending.length + tripManifest.inspected.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={loadTripManifest}
+                            className="text-blue-600 hover:text-blue-800 p-1"
+                            title="Refresh manifest"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                        <span className="text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+                            {tripManifest.pending.length + tripManifest.inspected.length}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Tabs */}

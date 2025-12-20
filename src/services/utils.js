@@ -1,15 +1,50 @@
 // Utility functions
 
-export const getCurrentUser = () => {
-  // 1. Try LocalStorage
+// Get browser ID for session isolation
+const getBrowserId = () => {
+  let browserId = sessionStorage.getItem('blueos_browser_id');
+  if (!browserId) {
+    browserId = 'browser_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('blueos_browser_id', browserId);
+  }
+  return browserId;
+};
+
+// Session storage keys
+const getSessionKey = (sessionId) => `blueos_session_${sessionId}`;
+const getCurrentSessionIdKey = () => `blueos_current_session_${getBrowserId()}`;
+
+// Get current session
+const getCurrentSession = () => {
   try {
-    const localUser = localStorage.getItem('user');
+    const sessionId = sessionStorage.getItem(getCurrentSessionIdKey());
+    if (!sessionId) return null;
+    
+    const sessionData = sessionStorage.getItem(getSessionKey(sessionId));
+    if (!sessionData) return null;
+    
+    return JSON.parse(sessionData);
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getCurrentUser = () => {
+  // 1. Try current session (preferred - supports multi-login)
+  const session = getCurrentSession();
+  if (session?.user) {
+    return session.user;
+  }
+  
+  // 2. Try Legacy LocalStorage (backwards compatibility)
+  try {
+    const localUser = sessionStorage.getItem('user');
     if (localUser) return JSON.parse(localUser);
   } catch (e) {
     // Ignore
   }
 
-  // 2. Try SessionStorage
+  // 3. Try SessionStorage
   try {
     const sessionUser = sessionStorage.getItem('user');
     if (sessionUser) return JSON.parse(sessionUser);
@@ -17,12 +52,24 @@ export const getCurrentUser = () => {
     // Ignore
   }
 
-  // 3. Try Memory Fallback
+  // 4. Try Memory Fallback
   if (window.currentUser) {
     return window.currentUser;
   }
 
   return null;
+};
+
+// Check if user is authenticated
+export const isAuthenticated = () => {
+  const session = getCurrentSession();
+  return session?.token != null;
+};
+
+// Get current auth token
+export const getAuthToken = () => {
+  const session = getCurrentSession();
+  return session?.token || null;
 };
 
 export const generateTripCode = async () => {

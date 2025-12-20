@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { mainAPI } from '../../services/api';
 import { getGeolocation, getLocationName, compressImage, getCurrentUser } from '../../services/utils';
 import CameraModal from '../Shared/CameraModal';
@@ -6,20 +6,69 @@ import QRScannerModal from '../Shared/QRScannerModal';
 import { useToast } from '../Shared/Toast';
 import { MapPin, Camera, QrCode, Plus, Trash2, Save, Fish, Image as ImageIcon, X } from 'lucide-react';
 
-const SpeciesEntry = ({ trip }) => {
+// Storage keys for data persistence
+const SPECIES_LIST_STORAGE_KEY = 'blueos_species_list_draft';
+const CURRENT_ENTRY_STORAGE_KEY = 'blueos_current_entry_draft';
+
+const SpeciesEntry = ({ trip, onCatchSaved }) => {
   const toast = useToast();
   const [location, setLocation] = useState({ lat: null, lng: null, name: 'Fetching...' });
-  const [speciesList, setSpeciesList] = useState([]);
-  const [currentEntry, setCurrentEntry] = useState({
-    species: '',
-    customSpecies: '',
-    images: [],
-    qrCodes: []
+  
+  // Load saved species list from storage
+  const [speciesList, setSpeciesList] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(SPECIES_LIST_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  
+  // Load saved current entry from storage
+  const [currentEntry, setCurrentEntry] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(CURRENT_ENTRY_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // Ignore
+    }
+    return {
+      species: '',
+      customSpecies: '',
+      images: [],
+      qrCodes: []
+    };
   });
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Save species list to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SPECIES_LIST_STORAGE_KEY, JSON.stringify(speciesList));
+    } catch (e) {
+      console.warn('Failed to save species list:', e);
+    }
+  }, [speciesList]);
+
+  // Save current entry to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(CURRENT_ENTRY_STORAGE_KEY, JSON.stringify(currentEntry));
+    } catch (e) {
+      console.warn('Failed to save current entry:', e);
+    }
+  }, [currentEntry]);
+
+  // Clear drafts function
+  const clearDrafts = useCallback(() => {
+    sessionStorage.removeItem(SPECIES_LIST_STORAGE_KEY);
+    sessionStorage.removeItem(CURRENT_ENTRY_STORAGE_KEY);
+  }, []);
 
   // Fetch location on mount
   useEffect(() => {
@@ -43,13 +92,38 @@ const SpeciesEntry = ({ trip }) => {
     }));
   };
 
-  const handleQRScan = (code) => {
-    if (!currentEntry.qrCodes.includes(code)) {
-      setCurrentEntry(prev => ({
-        ...prev,
-        qrCodes: [...prev.qrCodes, code]
-      }));
+  const handleQRScan = async (code) => {
+    // Check if already in current list
+    if (currentEntry.qrCodes.includes(code)) {
+      toast.warning('This QR code is already in your current list', 'Duplicate');
+      return;
     }
+    
+    // Check if already in species list being built
+    const isInSpeciesList = speciesList.some(entry => entry.qrCodes.includes(code));
+    if (isInSpeciesList) {
+      toast.warning('This QR code is already added to this session', 'Duplicate');
+      return;
+    }
+    
+    // Validate with backend if QR is already used in database
+    try {
+      const validation = await mainAPI.validateQR(code);
+      if (validation.success && validation.isUsed) {
+        toast.error(validation.message || `QR already used for ${validation.species}`, 'Already Logged');
+        return;
+      }
+    } catch (error) {
+      console.error('QR validation error:', error);
+      // Continue anyway if validation fails
+    }
+    
+    // Add to current entry
+    setCurrentEntry(prev => ({
+      ...prev,
+      qrCodes: [...prev.qrCodes, code]
+    }));
+    toast.success('QR Code scanned successfully', 'Added');
   };
 
   const handleAddSpecies = () => {
@@ -111,12 +185,48 @@ const SpeciesEntry = ({ trip }) => {
       
       // Check for failures
       const failures = results.filter(r => !r.success);
-      if (failures.length > 0) {
-        console.error("Some entries failed:", failures);
-        toast.error(failures[0].message, 'Save Failed');
+      const successes = results.filter(r => r.success);
+      
+      if (failures.length > 0 && successes.length === 0) {
+        // All failed
+        console.error("All entries failed:", failures);
+        const duplicateError = failures.find(f => f.isDuplicate);
+        if (duplicateError) {
+          toast.error(duplicateError.message, 'Duplicate QR');
+        } else {
+          toast.error(failures[0].message || 'Failed to save catch', 'Save Failed');
+        }
+      } else if (failures.length > 0) {
+        // Some failed, some succeeded
+        console.warn("Partial save:", { successes: successes.length, failures: failures.length });
+        toast.warning(`${successes.length} saved, ${failures.length} failed (possibly duplicates)`, 'Partial Save');
+        // Still clear and notify since some were saved
+        clearDrafts();
+        setSpeciesList([]);
+        setCurrentEntry({
+          species: '',
+          customSpecies: '',
+          images: [],
+          qrCodes: []
+        });
+        if (onCatchSaved) {
+          onCatchSaved();
+        }
       } else {
         toast.success('Catch Session Saved Successfully!', 'Saved');
+        // Clear drafts on successful save
+        clearDrafts();
         setSpeciesList([]);
+        setCurrentEntry({
+          species: '',
+          customSpecies: '',
+          images: [],
+          qrCodes: []
+        });
+        // Notify parent to refresh summary
+        if (onCatchSaved) {
+          onCatchSaved();
+        }
       }
     } catch (error) {
       console.error("Save Session Error:", error);
@@ -198,7 +308,7 @@ const SpeciesEntry = ({ trip }) => {
                 <select
                   value={currentEntry.species}
                   onChange={(e) => setCurrentEntry(prev => ({ ...prev, species: e.target.value }))}
-                  className="input-field"
+                  className="input-field text-slate-900 bg-white"
                 >
                   <option value="">-- Select Species --</option>
                   {commonSpecies.map(s => <option key={s} value={s}>{s}</option>)}
@@ -213,7 +323,7 @@ const SpeciesEntry = ({ trip }) => {
                     type="text"
                     value={currentEntry.customSpecies}
                     onChange={(e) => setCurrentEntry(prev => ({ ...prev, customSpecies: e.target.value }))}
-                    className="input-field"
+                    className="input-field text-slate-900 bg-white"
                     placeholder="Enter species name"
                   />
                 </div>

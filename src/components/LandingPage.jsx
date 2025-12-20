@@ -38,7 +38,7 @@ const WORLDS = [
 
 // --- Sub-Components ---
 
-const Header = ({ onNavigate }) => {
+const Header = ({ onNavigate, onTraceClick }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -59,7 +59,7 @@ const Header = ({ onNavigate }) => {
         </div>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-6">
           {['About', 'How it Works', 'Contact'].map((item) => (
             <button 
               key={item}
@@ -69,6 +69,13 @@ const Header = ({ onNavigate }) => {
               {item}
             </button>
           ))}
+          <button 
+            onClick={onTraceClick}
+            className="px-4 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-full font-bold text-sm hover:from-teal-500 hover:to-cyan-500 transition-all flex items-center gap-2 shadow-lg shadow-teal-900/30"
+          >
+            <Fish className="w-4 h-4" />
+            Trace Fish
+          </button>
           <button 
             onClick={() => onNavigate('world-selection')}
             className="px-5 py-2 bg-white text-slate-900 rounded-full font-bold text-sm hover:bg-blue-50 transition-colors"
@@ -98,6 +105,16 @@ const Header = ({ onNavigate }) => {
               {item}
             </button>
           ))}
+          <button 
+            onClick={() => {
+              onTraceClick();
+              setMobileMenuOpen(false);
+            }}
+            className="flex items-center gap-2 text-teal-400 hover:text-teal-300 py-2 font-medium"
+          >
+            <Fish className="w-4 h-4" />
+            Trace Your Seafood
+          </button>
         </div>
       )}
     </header>
@@ -207,9 +224,13 @@ const LandingPage = () => {
     }
   };
 
+  const handleTraceClick = () => {
+    navigate('/public-trace');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 relative overflow-x-hidden font-sans selection:bg-blue-500/30 selection:text-blue-200">
-      <Header onNavigate={handleNavigation} />
+      <Header onNavigate={handleNavigation} onTraceClick={handleTraceClick} />
       
       {/* Background Effects */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -252,6 +273,30 @@ const LandingPage = () => {
             </button>
         </div>
 
+        {/* Trace Your Seafood CTA */}
+        <div className="mt-12 animate-fade-in delay-300 relative z-20">
+            <button 
+                onClick={() => navigate('/public-trace')}
+                className="group relative px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-500 to-blue-600 hover:from-teal-500 hover:via-cyan-400 hover:to-blue-500 text-white font-bold text-base shadow-[0_0_50px_-12px_rgba(6,182,212,0.6)] transition-all transform hover:-translate-y-1 hover:shadow-[0_0_70px_-15px_rgba(6,182,212,0.7)] flex items-center gap-3 cursor-pointer border border-cyan-400/30 overflow-hidden"
+            >
+                {/* Animated Gradient Background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                
+                {/* Fish Icon with Animation */}
+                <div className="relative bg-white/20 p-2 rounded-lg group-hover:scale-110 transition-transform">
+                    <Fish size={20} className="text-white" />
+                </div>
+                
+                <div className="relative text-left">
+                    <span className="block text-xs uppercase tracking-widest text-cyan-200 font-medium">Consumer Portal</span>
+                    <span className="block text-lg">Trace Your Seafood</span>
+                </div>
+                
+                <ArrowRight size={20} className="relative ml-2 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <p className="mt-3 text-slate-500 text-sm">Scan QR code • View fish origin • Verify quality</p>
+        </div>
+
         {/* Hero Stats */}
         <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16 border-t border-white/5 pt-12 animate-fade-in delay-300 w-full">
             {[
@@ -288,6 +333,157 @@ const LandingPage = () => {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Consumer Traceability Section */}
+      <section className="relative z-10 py-24 px-6 overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 md:p-16 border border-slate-700/50 overflow-hidden shadow-2xl">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-30">
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#14B8A6_1px,transparent_1px),linear-gradient(to_bottom,#14B8A6_1px,transparent_1px)] bg-[size:60px_60px] opacity-10"></div>
+              <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+              <div className="absolute bottom-0 left-0 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+            </div>
+            
+            <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              {/* Left Content */}
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 text-teal-400 text-sm font-bold uppercase tracking-widest mb-6 border border-teal-500/30">
+                  <Fish size={16} /> For Consumers
+                </div>
+                <h2 className="text-3xl md:text-5xl font-black text-white mb-6 leading-tight">
+                  Know Where Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Fish</span> Comes From
+                </h2>
+                <p className="text-slate-400 text-lg mb-8 leading-relaxed">
+                  Every fish tells a story. Scan the QR code on your seafood to trace its complete journey — from the ocean where it was caught, to the vessel that harvested it, and the quality inspection it passed.
+                </p>
+                
+                <div className="flex flex-wrap gap-6 mb-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center">
+                      <Ship size={20} className="text-teal-400" />
+                    </div>
+                    <span className="text-slate-300 font-medium">Vessel Details</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+                      <Anchor size={20} className="text-cyan-400" />
+                    </div>
+                    <span className="text-slate-300 font-medium">Catch Location</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                      <Shield size={20} className="text-blue-400" />
+                    </div>
+                    <span className="text-slate-300 font-medium">Quality Grade</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => navigate('/public-trace')}
+                  className="group px-8 py-5 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white font-bold text-lg shadow-[0_0_50px_-15px_rgba(20,184,166,0.5)] transition-all transform hover:-translate-y-1 hover:shadow-[0_0_60px_-15px_rgba(20,184,166,0.7)] flex items-center gap-3"
+                >
+                  <Fish size={24} />
+                  Trace Your Seafood Now
+                  <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                </button>
+              </div>
+              
+              {/* Right Visual - QR Animation */}
+              <div className="relative flex justify-center">
+                <div className="relative">
+                  {/* Phone Frame */}
+                  <div className="w-64 h-[480px] bg-slate-900 rounded-[3rem] border-4 border-slate-700 shadow-2xl relative overflow-hidden">
+                    {/* Screen Content */}
+                    <div className="absolute inset-4 bg-gradient-to-b from-slate-800 to-slate-900 rounded-[2rem] overflow-hidden">
+                      {/* Header */}
+                      <div className="bg-slate-800 px-4 py-3 flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                          <Fish size={16} className="text-white" />
+                        </div>
+                        <span className="font-bold text-white text-sm">FishTrace</span>
+                      </div>
+                      
+                      {/* QR Scanner Area */}
+                      <div className="p-4">
+                        <div className="relative bg-slate-700/50 rounded-2xl p-6 border border-slate-600/50 aspect-square flex items-center justify-center">
+                          {/* Scanning Animation */}
+                          <div className="absolute inset-4 border-2 border-teal-500/50 rounded-xl">
+                            <div className="absolute inset-0 overflow-hidden rounded-xl">
+                              <div className="h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent animate-scan"></div>
+                            </div>
+                          </div>
+                          {/* QR Icon */}
+                          <div className="relative z-10 w-24 h-24 bg-white rounded-xl p-3 shadow-lg">
+                            <div className="w-full h-full grid grid-cols-3 gap-1">
+                              {[...Array(9)].map((_, i) => (
+                                <div key={i} className={`${[0,2,3,4,6,8].includes(i) ? 'bg-slate-900' : 'bg-white'} rounded-sm`}></div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Result Preview */}
+                        <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center gap-3">
+                          <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-emerald-400 font-bold text-sm">Verified Origin</p>
+                            <p className="text-slate-400 text-xs">Grade A • Fresh • 2.5 kg</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Notch */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-6 bg-slate-950 rounded-full"></div>
+                  </div>
+                  
+                  {/* Floating Badges */}
+                  <div className="absolute -right-8 top-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 shadow-lg animate-float">
+                    <div className="flex items-center gap-2">
+                      <Ship size={16} className="text-blue-400" />
+                      <span className="text-xs text-white font-medium">Vessel Verified</span>
+                    </div>
+                  </div>
+                  <div className="absolute -left-12 bottom-32 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 shadow-lg animate-float-delayed">
+                    <div className="flex items-center gap-2">
+                      <Shield size={16} className="text-emerald-400" />
+                      <span className="text-xs text-white font-medium">Quality Checked</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <style jsx>{`
+          @keyframes scan {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(calc(100% + 200px)); }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+          }
+          @keyframes float-delayed {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+          .animate-scan {
+            animation: scan 2s ease-in-out infinite;
+          }
+          .animate-float {
+            animation: float 3s ease-in-out infinite;
+          }
+          .animate-float-delayed {
+            animation: float-delayed 3s ease-in-out infinite 0.5s;
+          }
+        `}</style>
       </section>
 
       {/* About Section */}

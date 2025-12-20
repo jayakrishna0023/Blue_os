@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
-import { Ship, Calendar, MapPin, ArrowRight, Clock, Activity, CheckCircle, AlertCircle, FileCheck } from 'lucide-react';
+import { Ship, Calendar, MapPin, ArrowRight, Clock, Activity, CheckCircle, AlertCircle, FileCheck, RefreshCw } from 'lucide-react';
 
 const WorkerHome = () => {
   const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -32,7 +33,13 @@ const WorkerHome = () => {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
   };
 
   if (loading) {
@@ -106,6 +113,14 @@ const WorkerHome = () => {
             </h2>
             <p className="text-slate-500 text-sm mt-1">Select a vessel to begin quality control inspection</p>
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

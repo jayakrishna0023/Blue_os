@@ -198,10 +198,13 @@ const TripSummary = ({ trip, onComplete }) => {
                         {log.quality_grade || '?'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5 flex gap-2">
-                      <span>{log.weight_kg || 0} kg</span>
-                      <span>•</span>
-                      <span className="truncate">{log.location_name || 'Unknown'}</span>
+                    <div className="text-[10px] text-slate-500 mt-0.5 flex flex-col gap-0.5">
+                      <div className="flex gap-2">
+                        <span>{log.weight_kg || 0} kg</span>
+                        <span>•</span>
+                        <span className="truncate">{log.location_name || 'Unknown'}</span>
+                      </div>
+                      <span className="font-mono text-xs text-slate-400">ID: {log.qr_code}</span>
                     </div>
                   </div>
                 </div>
@@ -216,7 +219,7 @@ const TripSummary = ({ trip, onComplete }) => {
                 <tr>
                   <th className="p-2 sm:p-3 rounded-tl-lg">Image</th>
                   <th className="p-2 sm:p-3">Species</th>
-                  <th className="p-2 sm:p-3 hidden md:table-cell">Tag ID</th>
+                  <th className="p-2 sm:p-3">Tag ID</th>
                   <th className="p-2 sm:p-3">Location</th>
                   <th className="p-2 sm:p-3">Weight</th>
                   <th className="p-2 sm:p-3">Grade</th>
@@ -245,7 +248,7 @@ const TripSummary = ({ trip, onComplete }) => {
                         )}
                       </td>
                       <td className="p-2 sm:p-3 font-medium text-slate-800 text-xs sm:text-sm">{log.species_name}</td>
-                      <td className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs text-slate-500 hidden md:table-cell">{log.qr_code}</td>
+                      <td className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs text-slate-500">{log.qr_code}</td>
                       <td className="p-2 sm:p-3 text-slate-600 text-xs sm:text-sm max-w-[100px] sm:max-w-[150px] truncate" title={log.location_name}>
                         {log.location_name || 'Unknown'}
                       </td>

@@ -1,17 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI, fisherAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
-import { User, LogOut, QrCode, Ship, Calendar, MapPin, Clock, Download } from 'lucide-react';
+import { User, LogOut, QrCode, Ship, Calendar, MapPin, Clock, Download, RefreshCw } from 'lucide-react';
 import QRCode from 'qrcode';
 
 const FisherDashboard = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const user = getCurrentUser();
   const navigate = useNavigate();
+
+  const fetchTrips = useCallback(async () => {
+    if (!user?.id) {
+        console.warn("FisherDashboard: No user ID found", user);
+        return;
+    }
+    setLoading(true);
+    try {
+      console.log("Fetching trips for fisher ID:", user.id, "QR:", user.qr_code);
+      const response = await fisherAPI.getTrips(user.id);
+      console.log("Fisher trips response:", response);
+      if (response.success) {
+        setTrips(response.trips || []);
+      }
+    } catch (error) {
+      console.error("Error fetching trips", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.id, user?.qr_code]);
 
   useEffect(() => {
     if (user?.qr_code) {
@@ -21,21 +43,11 @@ const FisherDashboard = () => {
     }
     // Fetch trips on mount to populate stats
     fetchTrips();
-  }, []);
+  }, [fetchTrips]);
 
-  const fetchTrips = async () => {
-    if (!user?.id) return;
-    setLoading(true);
-    try {
-      const response = await fisherAPI.getTrips(user.id);
-      if (response.success) {
-        setTrips(response.trips);
-      }
-    } catch (error) {
-      console.error("Error fetching trips", error);
-    } finally {
-      setLoading(false);
-    }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTrips();
   };
 
   const handleLogout = () => {
@@ -191,12 +203,26 @@ const FisherDashboard = () => {
 
         {activeTab === 'trips' && (
           <div className="space-y-4 animate-fade-in">
+            {/* Refresh Header */}
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">My Trips</h2>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
             {loading ? (
               <div className="text-center py-8 text-slate-500">Loading trips...</div>
             ) : trips.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
                 <Ship className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">No trips recorded yet.</p>
+                <p className="text-xs text-slate-400 mt-2">When a captain adds you to a trip, it will appear here.</p>
               </div>
             ) : (
               trips.map((trip, idx) => (
@@ -213,14 +239,25 @@ const FisherDashboard = () => {
                     </span>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
+                  <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-slate-400" />
-                      {new Date(trip.departure_date).toLocaleDateString()}
+                      <span className="text-xs">Dep: {new Date(trip.departure_date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-slate-400" />
-                      {new Date(trip.joined_at).toLocaleDateString()}
+                      <span className="text-xs">Joined: {new Date(trip.joined_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Port</p>
+                      <p className="text-sm font-medium text-slate-700 truncate">{trip.departure_port || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Method</p>
+                      <p className="text-sm font-medium text-slate-700 truncate">{trip.fishing_method || 'N/A'}</p>
                     </div>
                   </div>
                 </div>

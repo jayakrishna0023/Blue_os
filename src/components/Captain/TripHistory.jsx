@@ -27,12 +27,18 @@ const TripHistory = () => {
       // Pass vessel name and user ID for better trip matching
       const vesselName = user?.vessel_name || user?.vesselName || '';
       const userId = user?.id || '';
+      console.log('Fetching trips for vessel:', vesselName, 'userId:', userId);
       const response = await mainAPI.getCaptainTrips(vesselName, userId);
+      console.log('Trip history response:', response);
       if (response.success) {
-        setTrips(response.trips);
+        setTrips(response.trips || []);
+        if (response.trips?.length === 0) {
+          console.log('No trips found for this user/vessel');
+        }
       } else {
         // Don't show error immediately, just empty list
         setTrips([]);
+        console.warn('Trip fetch unsuccessful:', response.message);
       }
     } catch (err) {
       console.error("History fetch error", err);
@@ -111,7 +117,7 @@ const TripHistory = () => {
                   <div className="flex items-center gap-3 mb-2">
                     {getStatusBadge(trip.status)}
                     <span className="text-slate-400 text-xs font-mono">
-                        {new Date(trip.created_at || trip.departure_date).toLocaleDateString()}
+                        {new Date(trip.departure_date || trip.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Shared/Toast';
 import LandingPage from './components/LandingPage';
@@ -9,16 +9,60 @@ import AdminDashboard from './components/Admin/AdminDashboard';
 import InspectorDashboard from './components/Inspector/InspectorDashboard';
 import FisherDashboard from './components/Fisher/FisherDashboard';
 import Traceability from './components/Public/Traceability';
+import PublicTraceability from './components/Public/PublicTraceability';
 import VesselRegistry from './components/Public/VesselRegistry';
 import About from './components/Public/About';
 import QRGenerator from './components/Admin/QRGenerator';
-import { getCurrentUser } from './services/utils';
+import { getCurrentUser, isAuthenticated } from './services/utils';
+import { authAPI } from './services/api';
 
-// Protected Route Component
+// Protected Route Component with session validation
 const ProtectedRoute = ({ children, allowedRoles }) => {
+  const [validating, setValidating] = useState(true);
+  const [isValid, setIsValid] = useState(false);
   const user = getCurrentUser();
   
-  if (!user) {
+  useEffect(() => {
+    const validateUserSession = async () => {
+      if (!user) {
+        setIsValid(false);
+        setValidating(false);
+        return;
+      }
+      
+      // Check if we have a token
+      if (isAuthenticated()) {
+        // Optionally validate with server (can be done periodically)
+        try {
+          const valid = await authAPI.validateSession();
+          setIsValid(valid);
+        } catch (e) {
+          // If validation fails, still allow if we have local user data
+          // This handles offline scenarios
+          setIsValid(true);
+        }
+      } else {
+        // Legacy mode - user exists but no token
+        setIsValid(true);
+      }
+      setValidating(false);
+    };
+    
+    validateUserSession();
+  }, [user]);
+
+  if (validating) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">Validating session...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user || !isValid) {
     return <Navigate to="/login" replace />;
   }
 
@@ -46,6 +90,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/about" element={<About />} />
             <Route path="/traceability" element={<Traceability />} />
+            <Route path="/public-trace" element={<PublicTraceability />} />
             <Route path="/registry" element={<VesselRegistry />} />
 
           {/* Protected Routes */}

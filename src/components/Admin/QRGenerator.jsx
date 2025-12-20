@@ -63,7 +63,7 @@ const QRGenerator = () => {
                 <select 
                     value={config.qrType}
                     onChange={(e) => setConfig({...config, qrType: e.target.value})}
-                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm"
+                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm text-slate-900 bg-white"
                 >
                     <option value="FISH">Fish</option>
                     <option value="CRATE">Crate</option>
@@ -75,7 +75,7 @@ const QRGenerator = () => {
                     type="text" 
                     value={config.countryCode}
                     onChange={(e) => setConfig({...config, countryCode: e.target.value.toUpperCase()})}
-                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm"
+                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm text-slate-900 bg-white"
                     maxLength={3}
                 />
             </div>
@@ -85,7 +85,7 @@ const QRGenerator = () => {
                     type="text" 
                     value={config.landingCentre}
                     onChange={(e) => setConfig({...config, landingCentre: e.target.value.toUpperCase()})}
-                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm"
+                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm text-slate-900 bg-white"
                     maxLength={3}
                 />
             </div>
@@ -95,7 +95,7 @@ const QRGenerator = () => {
                     type="text" 
                     value={config.year}
                     onChange={(e) => setConfig({...config, year: e.target.value})}
-                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm"
+                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm text-slate-900 bg-white"
                     maxLength={4}
                 />
             </div>
@@ -105,7 +105,7 @@ const QRGenerator = () => {
                     type="number" 
                     value={config.quantity}
                     onChange={(e) => setConfig({...config, quantity: parseInt(e.target.value)})}
-                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm"
+                    className="w-full p-2 sm:p-2.5 border rounded-lg text-sm text-slate-900 bg-white"
                     min="1"
                     max="100"
                 />

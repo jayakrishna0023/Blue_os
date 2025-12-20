@@ -48,7 +48,86 @@
   }
 
   .input-field {
-    @apply w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-slate-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-ocean-500 focus:border-transparent transition-all outline-none text-base;
+    @apply w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border border-slate-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-ocean-500 focus:border-transparent transition-all outline-none text-base text-slate-900;
+  }
+
+  /* Ensure select dropdowns have dark text */
+  select.input-field option {
+    @apply text-slate-900 bg-white;
+  }
+
+  /* Global form input text visibility fix */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    color: inherit;
+  }
+
+  /* Light theme forms - ensure dark text */
+  .glass-card input:not([type="checkbox"]):not([type="radio"]),
+  .glass-card textarea,
+  .glass-card select,
+  .bg-white input:not([type="checkbox"]):not([type="radio"]),
+  .bg-white textarea,
+  .bg-white select,
+  [class*="bg-slate-50"] input:not([type="checkbox"]):not([type="radio"]),
+  [class*="bg-slate-50"] textarea,
+  [class*="bg-slate-50"] select {
+    @apply text-slate-900;
+  }
+
+  /* Dark theme forms - ensure light text */
+  .bg-slate-900 input:not([type="checkbox"]):not([type="radio"]),
+  .bg-slate-900 textarea,
+  .bg-slate-900 select,
+  .bg-slate-950 input:not([type="checkbox"]):not([type="radio"]),
+  .bg-slate-950 textarea,
+  .bg-slate-950 select,
+  [class*="bg-slate-800"] input:not([type="checkbox"]):not([type="radio"]),
+  [class*="bg-slate-800"] textarea,
+  [class*="bg-slate-800"] select {
+    @apply text-white;
+  }
+
+  /* Fix for placeholder text */
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-slate-400;
+  }
+
+  /* Table text visibility - force dark text in tables */
+  table {
+    @apply text-slate-900;
+  }
+
+  table th {
+    @apply text-slate-700 font-semibold;
+  }
+
+  table td {
+    @apply text-slate-800;
+  }
+
+  /* Ensure select options are always visible */
+  option {
+    @apply text-slate-900 bg-white;
+  }
+
+  /* Force visible text in inputs with white/light backgrounds */
+  input[class*="bg-white"],
+  textarea[class*="bg-white"],
+  select[class*="bg-white"],
+  input.input-field,
+  textarea.input-field,
+  select.input-field {
+    @apply text-slate-900 !important;
+  }
+
+  /* Override for inputs in dark containers */
+  input[class*="text-white"],
+  textarea[class*="text-white"],
+  select[class*="text-white"] {
+    color: white !important;
   }
 
   .btn-primary {

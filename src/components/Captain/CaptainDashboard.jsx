@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI, mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
@@ -13,17 +13,49 @@ const CaptainDashboard = () => {
   const [activeTab, setActiveTab] = useState('trip');
   const [currentTrip, setCurrentTrip] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [summaryKey, setSummaryKey] = useState(0); // Key to force Summary refresh
   const user = getCurrentUser();
   const navigate = useNavigate();
 
+  // Function to trigger summary refresh when catches are saved
+  const handleCatchSaved = () => {
+    setSummaryKey(prev => prev + 1);
+  };
+
   useEffect(() => {
-    // Check if there's an active trip in local storage or fetch from API
-    const savedTrip = localStorage.getItem('currentTrip');
-    if (savedTrip) {
-      setCurrentTrip(JSON.parse(savedTrip));
-      setActiveTab('species'); // Default to species if trip exists
-    }
-  }, []);
+    const checkActiveTrip = async () => {
+      // 1. Load from storage first for instant UI
+      const savedTrip = sessionStorage.getItem('currentTrip');
+      if (savedTrip) {
+        const parsed = JSON.parse(savedTrip);
+        setCurrentTrip(parsed);
+        setActiveTab('species'); // Default to species if trip exists
+        
+        // 2. Re-validate with server to get latest status
+        if (user?.id) {
+            try {
+                const response = await mainAPI.getCaptainTrips(null, user.id);
+                if (response.success && response.trips) {
+                    // Find our trip
+                    const serverTrip = response.trips.find(t => t.id === parsed.id);
+                    if (serverTrip) {
+                        // Update local state if status or code changed
+                        if (serverTrip.status !== parsed.status || serverTrip.trip_code !== parsed.trip_code) {
+                            console.log('Updating trip from server:', serverTrip);
+                            setCurrentTrip(serverTrip);
+                            sessionStorage.setItem('currentTrip', JSON.stringify(serverTrip));
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to validate trip with server', e);
+            }
+        }
+      }
+    };
+    
+    checkActiveTrip();
+  }, [user?.id]);
 
   const handleLogout = () => {
     authAPI.logout();
@@ -31,13 +63,13 @@ const CaptainDashboard = () => {
 
   const handleTripCreated = (tripData) => {
     setCurrentTrip(tripData);
-    localStorage.setItem('currentTrip', JSON.stringify(tripData));
+    sessionStorage.setItem('currentTrip', JSON.stringify(tripData));
     setActiveTab('species');
   };
 
   const handleTripCompleted = () => {
     setCurrentTrip(null);
-    localStorage.removeItem('currentTrip');
+    sessionStorage.removeItem('currentTrip');
     setActiveTab('trip');
   };
 
@@ -169,7 +201,8 @@ const CaptainDashboard = () => {
           )}
           {activeTab === 'species' && (
             <SpeciesEntry 
-              trip={currentTrip} 
+              trip={currentTrip}
+              onCatchSaved={handleCatchSaved}
             />
           )}
           {activeTab === 'history' && (
@@ -177,6 +210,7 @@ const CaptainDashboard = () => {
           )}
           {activeTab === 'summary' && (
             <TripSummary 
+              key={summaryKey}
               trip={currentTrip} 
               onComplete={handleTripCompleted} 
             />
