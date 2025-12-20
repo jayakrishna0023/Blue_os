@@ -91,34 +91,148 @@ export const formatDate = (dateString) => {
   });
 };
 
-export const getGeolocation = () => {
+export const getGeolocation = (options = {}) => {
+  const defaultOptions = {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 0
+  };
+  
+  const mergedOptions = { ...defaultOptions, ...options };
+  
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by your browser'));
-    } else {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
+      return;
+    }
+    
+    // Try high accuracy first
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          altitude: position.coords.altitude,
+          altitudeAccuracy: position.coords.altitudeAccuracy,
+          heading: position.coords.heading,
+          speed: position.coords.speed,
+          timestamp: position.timestamp
+        });
+      },
+      (error) => {
+        // If high accuracy fails, try without it
+        if (mergedOptions.enableHighAccuracy) {
+          console.warn('High accuracy location failed, trying low accuracy...');
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                altitude: position.coords.altitude,
+                altitudeAccuracy: position.coords.altitudeAccuracy,
+                heading: position.coords.heading,
+                speed: position.coords.speed,
+                timestamp: position.timestamp,
+                lowAccuracy: true
+              });
+            },
+            (fallbackError) => {
+              reject(fallbackError);
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          );
+        } else {
           reject(error);
         }
-      );
-    }
+      },
+      mergedOptions
+    );
   });
+};
+
+// Watch location with continuous updates
+export const watchGeolocation = (callback, errorCallback, options = {}) => {
+  const defaultOptions = {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 5000
+  };
+  
+  const mergedOptions = { ...defaultOptions, ...options };
+  
+  if (!navigator.geolocation) {
+    if (errorCallback) errorCallback(new Error('Geolocation is not supported'));
+    return null;
+  }
+  
+  const watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      callback({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
+        heading: position.coords.heading,
+        speed: position.coords.speed,
+        timestamp: position.timestamp
+      });
+    },
+    (error) => {
+      if (errorCallback) errorCallback(error);
+    },
+    mergedOptions
+  );
+  
+  return watchId;
+};
+
+// Stop watching location
+export const clearGeolocationWatch = (watchId) => {
+  if (watchId && navigator.geolocation) {
+    navigator.geolocation.clearWatch(watchId);
+  }
 };
 
 export const getLocationName = async (lat, lng) => {
   try {
+    // Try primary service
     const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
     const data = await response.json();
-    return data.city || data.locality || 'Unknown Location';
+    
+    // Build a more detailed location string
+    const parts = [];
+    if (data.locality) parts.push(data.locality);
+    else if (data.city) parts.push(data.city);
+    
+    if (data.principalSubdivision) parts.push(data.principalSubdivision);
+    if (data.countryName) parts.push(data.countryName);
+    
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+    
+    // Fallback to coordinates
+    return `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
   } catch (error) {
     console.error('Error fetching location name:', error);
-    return 'Unknown Location';
+    // Return formatted coordinates as fallback
+    return `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+  }
+};
+
+// Get location with name in one call
+export const getFullLocation = async (options = {}) => {
+  try {
+    const coords = await getGeolocation(options);
+    const name = await getLocationName(coords.latitude, coords.longitude);
+    return {
+      ...coords,
+      name: name
+    };
+  } catch (error) {
+    throw error;
   }
 };
 

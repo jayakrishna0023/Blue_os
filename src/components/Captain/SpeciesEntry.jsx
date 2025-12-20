@@ -70,18 +70,56 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
     sessionStorage.removeItem(CURRENT_ENTRY_STORAGE_KEY);
   }, []);
 
-  // Fetch location on mount
+  // Fetch location on mount with improved accuracy
   useEffect(() => {
+    let watchId = null;
+    
     const fetchLocation = async () => {
       try {
-        const loc = await getGeolocation();
+        // Get initial location quickly
+        const loc = await getGeolocation({ enableHighAccuracy: true, timeout: 10000 });
         const name = await getLocationName(loc.latitude, loc.longitude);
-        setLocation({ lat: loc.latitude, lng: loc.longitude, name });
+        setLocation({ 
+          lat: loc.latitude, 
+          lng: loc.longitude, 
+          name,
+          accuracy: loc.accuracy 
+        });
+        
+        // Continue watching for better accuracy
+        if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+            async (position) => {
+              const newLoc = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy
+              };
+              // Only update if accuracy improves
+              setLocation(prev => {
+                if (!prev.accuracy || position.coords.accuracy < prev.accuracy) {
+                  return { ...prev, ...newLoc };
+                }
+                return prev;
+              });
+            },
+            (err) => console.warn('Location watch error:', err),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          );
+        }
       } catch (error) {
-        setLocation(prev => ({ ...prev, name: 'Location Unavailable' }));
+        console.error('Location error:', error);
+        setLocation(prev => ({ ...prev, name: 'Location Unavailable - Check GPS Settings' }));
       }
     };
+    
     fetchLocation();
+    
+    return () => {
+      if (watchId && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   const handleImageCapture = async (imageSrc) => {
