@@ -580,9 +580,8 @@ const STORAGE_BUCKETS = {
     VESSEL_IMAGES: 'vessel-images',      // Vessel photos during trip registration
     GEAR_IMAGES: 'gear-images',          // Fishing gear photos
     CATCH_IMAGES: 'catch-images',        // Fish/species photos during catch logging
-    QR_CODES: 'qr-codes',                // Generated QR code images
-    FISHER_PHOTOS: 'fisher-photos',      // Fisher profile/ID photos
-    CRATE_IMAGES: 'crate-images'         // Crate photos
+    QR_CODES: 'qr-codes',                // Generated QR code images (including crate QRs)
+    FISHER_PHOTOS: 'fisher-photos'       // Fisher profile/ID photos
 };
 
 // Initialize storage buckets on server start
