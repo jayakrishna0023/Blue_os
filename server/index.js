@@ -2131,7 +2131,11 @@ app.post('/api/qr/generate', async (req, res) => {
     const { qrType, countryCode, landingCentre, year, quantity } = req.body;
     
     if (!qrType || !countryCode || !landingCentre || !year) {
-        return res.status(400).json({ success: false, message: 'Missing fields' });
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    if (!quantity || quantity < 1 || quantity > 500) {
+        return res.status(400).json({ success: false, message: 'Quantity must be between 1 and 500' });
     }
 
     try {
@@ -2164,12 +2168,27 @@ app.post('/api/qr/generate', async (req, res) => {
 
         const codes = [];
         const imageUrls = [];
+        const duplicates = [];
         
         for (let i = 1; i <= quantity; i++) {
             const num = lastNumber + i;
             const paddedNum = num.toString().padStart(6, '0');
             // Format: TYPE-COUNTRY-CENTER-YEAR-NUMBER (e.g., FISH-IND-CHN-2025-000001)
             const code = `${qrType}-${countryCode}-${landingCentre}-${year}-${paddedNum}`;
+            
+            // Check for duplicates
+            const { data: existing, error: checkErr } = await supabase
+                .from('qr_codes')
+                .select('id')
+                .eq('code', code);
+
+            if (checkErr) {
+                console.error('Error checking for duplicate:', checkErr);
+            } else if (existing && existing.length > 0) {
+                duplicates.push(code);
+                continue;
+            }
+            
             codes.push(code);
             
             try {
@@ -2188,29 +2207,67 @@ app.post('/api/qr/generate', async (req, res) => {
             }
         }
 
-        // Update counter
-        const { error: updateError } = await supabase
-            .from('qr_counters')
-            .update({ last_number: lastNumber + quantity })
-            .eq('qr_type', qrType)
-            .eq('country_code', countryCode)
-            .eq('landing_centre', landingCentre)
-            .eq('year', year);
+        // Only update counter if new codes were generated
+        if (codes.length > 0) {
+            const { error: updateError } = await supabase
+                .from('qr_counters')
+                .update({ last_number: lastNumber + codes.length })
+                .eq('qr_type', qrType)
+                .eq('country_code', countryCode)
+                .eq('landing_centre', landingCentre)
+                .eq('year', year);
 
-        if (updateError) throw updateError;
+            if (updateError) throw updateError;
 
-        // Store generated codes
-        const qrEntries = codes.map((c, idx) => ({ 
-            code: c, 
-            status: 'generated',
-            image_url: imageUrls[idx] || null
-        }));
-        
-        const { error: qrInsertError } = await supabase.from('qr_codes').insert(qrEntries);
-        if (qrInsertError) console.warn("Could not save individual QR codes:", qrInsertError.message);
+            // Store generated codes with appropriate table based on type
+            const qrEntries = codes.map((c, idx) => ({ 
+                code: c, 
+                status: 'generated',
+                image_url: imageUrls[idx] || null
+            }));
+            
+            const { error: qrInsertError } = await supabase.from('qr_codes').insert(qrEntries);
+            if (qrInsertError) {
+                console.warn("Could not save QR codes to qr_codes table:", qrInsertError.message);
+            }
 
-        res.json({ success: true, codes, imageUrls });
+            // If it's a CRATE type, also insert into crates table so workers can immediately scan them
+            if (qrType === 'CRATE') {
+                const crateEntries = codes.map(code => ({
+                    crate_qr: code,
+                    fish_count: 0,
+                    total_weight: 0,
+                    created_at: new Date().toISOString()
+                }));
+                
+                const { error: crateInsertError } = await supabase.from('crates').insert(crateEntries);
+                if (crateInsertError) {
+                    console.warn("Could not save crate records:", crateInsertError.message);
+                } else {
+                    console.log(`Created ${crateEntries.length} crate records for scanning`);
+                }
+            }
+        }
+
+        if (codes.length === 0) {
+            return res.json({ 
+                success: false, 
+                message: `All ${quantity} codes already exist. No new codes generated.`,
+                isDuplicate: true,
+                duplicates: duplicates
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            codes, 
+            imageUrls,
+            generated: codes.length,
+            duplicates: duplicates.length > 0 ? duplicates : undefined,
+            message: duplicates.length > 0 ? `Generated ${codes.length} codes, ${duplicates.length} were duplicates` : `Generated ${codes.length} codes successfully`
+        });
     } catch (error) {
+        console.error('QR generation error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -2366,6 +2423,18 @@ app.post('/api/crates/seal', async (req, res) => {
         // 1. Generate Crate QR
         const crateQr = `CRATE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         
+        // Check for duplicate crate QR
+        const { data: existingCrate, error: checkError } = await supabase
+            .from('crates')
+            .select('id')
+            .eq('crate_qr', crateQr);
+
+        if (checkError) throw checkError;
+
+        if (existingCrate && existingCrate.length > 0) {
+            return res.json({ success: false, message: 'Duplicate crate QR generated. Please try again.', isDuplicate: true });
+        }
+        
         // Generate QR Image for Crate and upload to qr-codes bucket
         const dataUrl = await QRCode.toDataURL(crateQr, {
             width: 300,
@@ -2440,9 +2509,104 @@ app.get('/api/crates/:qr', async (req, res) => {
     }
 });
 
+app.post('/api/crates/:crateId/add-fish', async (req, res) => {
+    const { crateId } = req.params;
+    const { fishQrCodes } = req.body;
+
+    if (!fishQrCodes || !Array.isArray(fishQrCodes) || fishQrCodes.length === 0) {
+        return res.status(400).json({ success: false, message: 'No fish QR codes provided' });
+    }
+
+    try {
+        // Get the crate
+        const { data: crate, error: crateError } = await supabase
+            .from('crates')
+            .select('*')
+            .eq('id', crateId)
+            .single();
+
+        if (crateError || !crate) {
+            return res.json({ success: false, message: 'Crate not found' });
+        }
+
+        // Update all fish records with the crate_id
+        const { data: fishData, error: fetchError } = await supabase
+            .from('catch_logs')
+            .select('weight_kg, count')
+            .in('qr_code', fishQrCodes);
+            
+        if (fetchError) throw fetchError;
+
+        // Check for duplicates - fish that are already in this or other crates
+        const { data: existingCrateFish, error: checkError } = await supabase
+            .from('catch_logs')
+            .select('qr_code, crate_id')
+            .in('qr_code', fishQrCodes)
+            .not('crate_id', 'is', null);
+
+        if (checkError) throw checkError;
+
+        if (existingCrateFish && existingCrateFish.length > 0) {
+            const duplicates = existingCrateFish.map(f => f.qr_code);
+            return res.json({ 
+                success: false, 
+                message: `These fish are already in another crate: ${duplicates.join(', ')}`,
+                isDuplicate: true
+            });
+        }
+
+        // Calculate totals
+        const totalWeight = fishData.reduce((sum, f) => sum + (f.weight_kg || 0), 0);
+        const fishCount = fishData.reduce((sum, f) => sum + (f.count || 1), 0);
+
+        // Update fish records to point to this crate
+        const { error: updateError } = await supabase
+            .from('catch_logs')
+            .update({ crate_id: crateId })
+            .in('qr_code', fishQrCodes);
+
+        if (updateError) throw updateError;
+
+        // Update crate totals
+        const updatedCrate = {
+            ...crate,
+            total_weight: (crate.total_weight || 0) + totalWeight,
+            fish_count: (crate.fish_count || 0) + fishCount
+        };
+
+        const { error: crateUpdateError } = await supabase
+            .from('crates')
+            .update({ 
+                total_weight: updatedCrate.total_weight,
+                fish_count: updatedCrate.fish_count
+            })
+            .eq('id', crateId);
+
+        if (crateUpdateError) throw crateUpdateError;
+
+        res.json({ success: true, crate: updatedCrate, message: 'Fish added to crate successfully' });
+    } catch (error) {
+        console.error('Add fish to crate error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.post('/api/crates', async (req, res) => {
     const { tripId, crateQr } = req.body;
+    
     try {
+        // Check for duplicate crate QR
+        const { data: existing, error: checkError } = await supabase
+            .from('crates')
+            .select('id')
+            .eq('crate_qr', crateQr);
+
+        if (checkError) throw checkError;
+
+        if (existing && existing.length > 0) {
+            return res.json({ success: false, message: 'This crate QR already exists. Each crate must have a unique QR code.', isDuplicate: true });
+        }
+
         const { error } = await supabase
             .from('crates')
             .insert([{ crate_qr: crateQr, trip_id: tripId }]);

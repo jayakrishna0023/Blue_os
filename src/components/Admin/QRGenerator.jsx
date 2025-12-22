@@ -19,21 +19,45 @@ const QRGenerator = () => {
   const navigate = useNavigate();
 
   const generateCodes = async () => {
+    // Validate quantity
+    if (!config.quantity || config.quantity < 1 || config.quantity > 500) {
+      toast.error('Quantity must be between 1 and 500', 'Invalid Quantity');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await mainAPI.generateQRCodes(config);
       if (response.success) {
+        // Check for duplicates in response
+        if (response.duplicates && response.duplicates.length > 0) {
+          toast.warning(
+            `Generated ${response.codes.length} new codes. ${response.duplicates.length} codes were already in use and skipped.`,
+            'Partial Generation'
+          );
+        }
+
         const codesWithUrls = await Promise.all(response.codes.map(async (code) => ({
             id: code,
             url: await QRCode.toDataURL(code, { width: 200, margin: 2 })
         })));
         setGeneratedCodes(codesWithUrls);
+        
+        if (config.qrType === 'CRATE') {
+          toast.success(`Generated ${codesWithUrls.length} crate QR codes. Workers can now scan these to pack fish.`, 'Success');
+        } else {
+          toast.success(`Generated ${codesWithUrls.length} fish QR codes.`, 'Success');
+        }
       } else {
-        toast.error('Failed to generate codes: ' + response.message, 'Error');
+        if (response.isDuplicate) {
+          toast.error('Some QR codes already exist. ' + response.message, 'Duplicate Codes');
+        } else {
+          toast.error('Failed to generate codes: ' + response.message, 'Error');
+        }
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error generating codes', 'Error');
+      toast.error('Error generating codes. Please try again.', 'Error');
     } finally {
       setLoading(false);
     }

@@ -313,6 +313,10 @@ export const mainAPI = {
     const response = await api.post('/crates/seal', { tripId, fishQrs });
     return response.data;
   },
+  updateCrateWithFish: async (crateId, fishData) => {
+    const response = await api.post(`/crates/${crateId}/add-fish`, { fishQrCodes: fishData.map(f => f.qr_code) });
+    return response.data;
+  },
   assignCrate: async (data) => {
     const response = await api.post('/crates/assign', data);
     return response.data;

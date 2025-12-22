@@ -25,18 +25,12 @@ const CrateManagement = () => {
   });
   const [loadingTrips, setLoadingTrips] = useState(true);
   
-  // Crate management - load saved fish from storage
-  const [viewMode, setViewMode] = useState('list'); // list, create, inspect
-  const [currentCrateFish, setCurrentCrateFish] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem(CRATE_FISH_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Crate management
+  const [viewMode, setViewMode] = useState('list'); // list, scan-crate, inspect
+  const [currentCrate, setCurrentCrate] = useState(null); // Store the scanned crate
+  const [currentCrateFish, setCurrentCrateFish] = useState([]);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scanMode, setScanMode] = useState('add-fish'); // add-fish, inspect-crate
+  const [scanMode, setScanMode] = useState('scan-crate'); // scan-crate, add-fish
   const [inspectedCrate, setInspectedCrate] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -93,8 +87,29 @@ const CrateManagement = () => {
     
     console.log(`Scanned code in mode ${scanMode}:`, code);
 
-    if (scanMode === 'add-fish') {
-      // Check if already in current packing list
+    if (scanMode === 'scan-crate') {
+      // Scan pre-generated crate QR
+      setLoading(true);
+      try {
+        const response = await mainAPI.inspectCrate(code);
+        console.log("Inspect response:", response);
+        
+        if (response.success) {
+          setCurrentCrate(response.crate);
+          setCurrentCrateFish(response.contents || []);
+          setViewMode('add-fish');
+          toast.success(`Crate loaded! Ready to add fish.`, 'Crate Found');
+        } else {
+          toast.error(response.message || 'Crate not found. Make sure this is a valid pre-generated crate QR.', 'Error');
+        }
+      } catch (err) {
+        console.error("Scan error:", err);
+        toast.error('Error scanning crate. Please try again.', 'Error');
+      } finally {
+        setLoading(false);
+      }
+    } else if (scanMode === 'add-fish') {
+      // Check if already in current crate
       if (currentCrateFish.find(f => f.qr_code === code)) {
         toast.warning('This fish is already added to this crate', 'Already Added');
         return;
@@ -125,23 +140,6 @@ const CrateManagement = () => {
       } finally {
         setLoading(false);
       }
-    } else if (scanMode === 'inspect-crate') {
-      setLoading(true);
-      try {
-        const response = await mainAPI.inspectCrate(code);
-        if (response.success) {
-          setInspectedCrate(response);
-          setViewMode('inspect');
-          toast.success('Crate found!', 'Success');
-        } else {
-          toast.error(response.message || 'Crate not found', 'Error');
-        }
-      } catch (err) {
-        console.error("Inspect error:", err);
-        toast.error('Failed to inspect crate', 'Error');
-      } finally {
-        setLoading(false);
-      }
     }
   };
 
@@ -151,34 +149,33 @@ const CrateManagement = () => {
       return;
     }
     
-    if (!selectedTrip?.id) {
-      toast.error('Please select a trip first', 'No Trip Selected');
+    if (!currentCrate?.id) {
+      toast.error('No crate loaded', 'Error');
       return;
     }
 
     setLoading(true);
     try {
-      const fishQrs = currentCrateFish.map(f => f.qr_code);
-      const response = await mainAPI.sealCrate(selectedTrip.id, fishQrs);
+      // Update crate with fish count
+      const response = await mainAPI.updateCrateWithFish(currentCrate.id, currentCrateFish);
       
       if (response.success) {
-        // Show success and the new Crate QR
         setInspectedCrate({
             crate: response.crate,
             contents: currentCrateFish,
-            qrImageUrl: response.qrImageUrl
+            qrImageUrl: currentCrate.qr_image_url
         });
         setViewMode('inspect');
-        // Clear draft and reset
-        clearCrateDraft();
+        // Reset
+        setCurrentCrate(null);
         setCurrentCrateFish([]);
-        toast.success('Crate sealed successfully!', 'Success');
+        toast.success('Crate updated successfully with fish!', 'Success');
       } else {
-        toast.error(response.message || 'Failed to seal crate', 'Error');
+        toast.error(response.message || 'Failed to update crate', 'Error');
       }
     } catch (err) {
-      console.error("Seal error:", err);
-      toast.error('Failed to seal crate', 'Error');
+      console.error("Update error:", err);
+      toast.error('Failed to update crate', 'Error');
     } finally {
       setLoading(false);
     }
@@ -211,35 +208,32 @@ const CrateManagement = () => {
               <Package className="w-6 h-6 text-blue-600" />
               Crate Management
             </h2>
-            <p className="text-slate-500 text-sm mt-1">Pack fish into crates and generate tracking QR codes</p>
+            <p className="text-slate-500 text-sm mt-1">Scan pre-generated QR codes and add fish to crates</p>
           </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => { setScanMode('inspect-crate'); setIsScannerOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium text-sm"
-            >
-              <Search className="w-4 h-4" />
-              Scan Crate
-            </button>
-            <button 
-              onClick={() => { setViewMode('create'); setCurrentCrateFish([]); }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm shadow-lg shadow-blue-500/20"
-            >
-              <Plus className="w-4 h-4" />
-              New Crate
-            </button>
-          </div>
+          <button 
+            onClick={() => { setScanMode('scan-crate'); setIsScannerOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm shadow-lg shadow-blue-500/20"
+          >
+            <QrCode className="w-4 h-4" />
+            Scan Crate QR
+          </button>
         </div>
       </div>
 
-      {/* Create Mode */}
-      {viewMode === 'create' && (
+      {/* Add Fish Mode */}
+      {viewMode === 'add-fish' && currentCrate && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm animate-fade-in">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold text-lg text-slate-900">New Crate Packing</h3>
-            <button onClick={() => setViewMode('list')} className="text-slate-400 hover:text-slate-600 p-1">
+            <h3 className="font-bold text-lg text-slate-900">Add Fish to Crate</h3>
+            <button onClick={() => { setViewMode('list'); setCurrentCrate(null); setCurrentCrateFish([]); }} className="text-slate-400 hover:text-slate-600 p-1">
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          {/* Crate Info */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <p className="text-xs text-blue-600 font-medium">Crate ID</p>
+            <p className="font-mono font-bold text-lg text-slate-800">{currentCrate.crate_qr}</p>
           </div>
 
           {/* Scan Button */}
@@ -251,7 +245,7 @@ const CrateManagement = () => {
               <QrCode className="w-8 h-8 text-blue-600" />
             </div>
             <span className="font-bold text-slate-700 text-lg">Scan Fish Tag</span>
-            <p className="text-sm text-slate-500 mt-1">Tap to scan and add approved fish to this crate</p>
+            <p className="text-sm text-slate-500 mt-1">Tap to scan and add fish to this crate</p>
           </div>
 
           {/* Live Crate Weight Summary */}
@@ -340,18 +334,18 @@ const CrateManagement = () => {
             </div>
             <button 
               onClick={handleSealCrate}
-              disabled={currentCrateFish.length === 0 || loading || !selectedTrip}
+              disabled={currentCrateFish.length === 0 || loading}
               className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
             >
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Sealing...
+                  Saving...
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Seal & Generate QR
+                  Save Crate
                 </>
               )}
             </button>
@@ -462,24 +456,17 @@ const CrateManagement = () => {
             <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Package className="w-10 h-10 text-blue-300" />
             </div>
-            <h3 className="font-bold text-slate-700 text-lg mb-2">Ready to Pack</h3>
+            <h3 className="font-bold text-slate-700 text-lg mb-2">Ready to Add Fish</h3>
             <p className="text-slate-500 max-w-md mx-auto">
-              Select "New Crate" to start packing fish, or "Scan Crate" to inspect an existing crate's contents.
+              Scan a pre-generated crate QR code to get started. The admin must generate crate QR codes before you can add fish.
             </p>
             <div className="flex justify-center gap-3 mt-6">
               <button 
-                onClick={() => { setScanMode('inspect-crate'); setIsScannerOpen(true); }}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors font-medium"
-              >
-                <Search className="w-4 h-4" />
-                Scan Crate
-              </button>
-              <button 
-                onClick={() => { setViewMode('create'); setCurrentCrateFish([]); }}
+                onClick={() => { setScanMode('scan-crate'); setIsScannerOpen(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
               >
-                <Plus className="w-4 h-4" />
-                New Crate
+                <QrCode className="w-4 h-4" />
+                Scan Crate QR
               </button>
             </div>
           </div>
