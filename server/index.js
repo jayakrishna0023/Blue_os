@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const QRCode = require('qrcode');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { supabase, initDB } = require('./db');
 
 const app = express();
@@ -1260,19 +1261,27 @@ app.post('/api/auth/vessel-owner/login', async (req, res) => {
     }
     
     try {
-        // Check if user exists and is a vessel owner
+        // Check if user exists - vessel owners are stored as 'captain' role with vessel_id
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
             .eq('username', username)
-            .eq('role', 'vessel_owner')
             .single();
             
         if (error || !user) {
-            console.log('[Vessel Owner Login] User not found or not a vessel owner');
+            console.log('[Vessel Owner Login] User not found');
             return res.json({ 
                 success: false, 
                 message: 'Invalid credentials or account not approved yet.' 
+            });
+        }
+        
+        // Check if this user has a vessel (vessel owner check)
+        if (!user.vessel_id && user.role !== 'vessel_owner') {
+            console.log('[Vessel Owner Login] User is not a vessel owner');
+            return res.json({ 
+                success: false, 
+                message: 'This account is not registered as a vessel owner. Please use the Staff Login.' 
             });
         }
         
@@ -1303,9 +1312,10 @@ app.post('/api/auth/vessel-owner/login', async (req, res) => {
             user: {
                 userId: user.id,
                 username: user.username,
-                role: user.role,
+                role: 'vessel_owner', // Return as vessel_owner for frontend routing
                 fullName: user.full_name,
-                vesselId: user.vessel_id
+                vesselId: user.vessel_id,
+                vesselName: user.vessel_name
             },
             token,
             sessionId
@@ -1518,19 +1528,13 @@ app.post('/api/admin/approve-registration', async (req, res) => {
             
             console.log('[Admin Approval] Processing vessel_owner registration:', pending.id);
             
-            // Create the vessel first
+            // Create the vessel first (only use columns that exist in the table)
             const { data: newVessel, error: vesselError } = await supabase
                 .from('vessels')
                 .insert([{
                     name: vesselData.name,
                     owner_name: ownerData.name,
                     registration_number: vesselData.registration_number,
-                    imn_number: vesselData.imn_number,
-                    vessel_type: vesselData.vessel_type,
-                    length_meters: vesselData.length || null,
-                    engine_power_hp: vesselData.engine_power || null,
-                    home_port: vesselData.home_port,
-                    build_year: vesselData.build_year || null,
                     status: 'active'
                 }])
                 .select()
@@ -1543,19 +1547,18 @@ app.post('/api/admin/approve-registration', async (req, res) => {
             
             console.log('[Admin Approval] Created vessel:', newVessel.id);
             
-            // Create the user with vessel_owner role
+            // Create the user with vessel_owner role (use only columns that exist)
+            // Note: Using 'captain' as role since DB constraint may not have 'vessel_owner'
+            // The is_vessel_owner flag (if exists) or vessel_id will identify them
             const { data: newUser, error: userError } = await supabase
                 .from('users')
                 .insert([{
                     username: pending.username,
-                    password: pending.password_hash, // Already hashed during registration
-                    role: 'captain', // vessel_owner maps to captain role for dashboard access
+                    password: pending.password_hash, // Already stored during registration
+                    role: 'captain', // Use captain role (vessel owners are captains of their vessels)
                     full_name: ownerData.name,
-                    phone: ownerData.phone,
-                    email: ownerData.email,
                     vessel_name: vesselData.name,
-                    vessel_id: newVessel.id,
-                    is_vessel_owner: true // Flag to identify vessel owners
+                    vessel_id: newVessel.id
                 }])
                 .select()
                 .single();
