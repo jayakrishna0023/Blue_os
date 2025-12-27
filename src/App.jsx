@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ToastProvider } from './components/Shared/Toast';
 import LandingPage from './components/LandingPage';
 import Login from './components/Auth/Login';
+import VesselOwnerLogin from './components/Auth/VesselOwnerLogin';
+import VesselOwnerRegistration from './components/Auth/VesselOwnerRegistration';
 import CaptainDashboard from './components/Captain/CaptainDashboard';
 import WorkerDashboard from './components/Worker/WorkerDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -73,6 +75,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (user.role === 'admin') return <Navigate to="/admin" replace />;
     if (user.role === 'inspector') return <Navigate to="/inspector" replace />;
     if (user.role === 'fisher') return <Navigate to="/fisher" replace />;
+    if (user.role === 'vessel_owner') return <Navigate to="/vessel-owner" replace />;
     return <Navigate to="/login" replace />;
   }
 
@@ -88,16 +91,27 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register/vessel-owner" element={<VesselOwnerRegistration />} />
             <Route path="/about" element={<About />} />
             <Route path="/traceability" element={<Traceability />} />
             <Route path="/public-trace" element={<PublicTraceability />} />
             <Route path="/registry" element={<VesselRegistry />} />
+            <Route path="/vessel-owner/login" element={<VesselOwnerLogin />} />
 
           {/* Protected Routes */}
           <Route 
             path="/captain/*" 
             element={
-              <ProtectedRoute allowedRoles={['captain', 'vessel_owner']}>
+              <ProtectedRoute allowedRoles={['captain']}>
+                <CaptainDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/vessel-owner/*" 
+            element={
+              <ProtectedRoute allowedRoles={['vessel_owner']}>
                 <CaptainDashboard />
               </ProtectedRoute>
             } 

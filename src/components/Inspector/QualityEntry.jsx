@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { inspectorAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
+import { FRESHNESS_GRADES, QUALITY_GRADES } from '../../services/faoConstants';
 import { useToast } from '../Shared/Toast';
 import QRScannerModal from '../Shared/QRScannerModal';
-import { QrCode, Thermometer, Scale, Award, Search, Save, CheckCircle, Ship, Clock, Fish, AlertCircle } from 'lucide-react';
+import { QrCode, Thermometer, Scale, Award, Search, Save, CheckCircle, Ship, Clock, Fish, AlertCircle, Droplets, Eye, AlertTriangle, FileText } from 'lucide-react';
 
 const QualityEntry = () => {
   const toast = useToast();
@@ -12,11 +13,19 @@ const QualityEntry = () => {
   const [manualQr, setManualQr] = useState('');
   const [selectedCatch, setSelectedCatch] = useState(null);
   
-  // Inspection Form Data
+  // Enhanced Inspection Form Data
   const [inspectionData, setInspectionData] = useState({
     temperature: '',
     weight: '',
-    grade: 'A'
+    grade: 'A',
+    freshness: 'excellent',
+    eyeClarity: 'clear',
+    gillColor: 'bright_red',
+    skinCondition: 'intact',
+    smell: 'fresh_sea',
+    damageType: 'none',
+    damageNotes: '',
+    inspectorNotes: ''
   });
 
   const handleScan = async (code) => {
@@ -44,7 +53,15 @@ const QualityEntry = () => {
         setInspectionData({
           temperature: fish.temperature || '',
           weight: fish.weight_kg || '',
-          grade: fish.quality_grade || 'A'
+          grade: fish.quality_grade || 'A',
+          freshness: fish.freshness || 'excellent',
+          eyeClarity: fish.eye_clarity || 'clear',
+          gillColor: fish.gill_color || 'bright_red',
+          skinCondition: fish.skin_condition || 'intact',
+          smell: fish.smell || 'fresh_sea',
+          damageType: fish.damage_type || 'none',
+          damageNotes: fish.damage_notes || '',
+          inspectorNotes: fish.inspector_notes || ''
         });
       } else {
         toast.warning('Catch record not found for this QR code.', 'Not Found');
@@ -73,7 +90,19 @@ const QualityEntry = () => {
       toast.success('Inspection saved successfully!', 'Saved');
       setSelectedCatch(null);
       setManualQr('');
-      setInspectionData({ temperature: '', weight: '', grade: 'A' });
+      setInspectionData({ 
+        temperature: '', 
+        weight: '', 
+        grade: 'A',
+        freshness: 'excellent',
+        eyeClarity: 'clear',
+        gillColor: 'bright_red',
+        skinCondition: 'intact',
+        smell: 'fresh_sea',
+        damageType: 'none',
+        damageNotes: '',
+        inspectorNotes: ''
+      });
     } catch (error) {
       toast.error('Failed to save inspection', 'Error');
     } finally {
@@ -178,7 +207,9 @@ const QualityEntry = () => {
                     </div>
 
                     <form onSubmit={handleSubmitInspection} className="space-y-4">
-                        <div>
+                        {/* Temperature & Weight Row */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Temperature (°C)</label>
                             <div className="relative">
                                 <Thermometer className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
@@ -192,9 +223,8 @@ const QualityEntry = () => {
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div>
+                          </div>
+                          <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Weight (kg)</label>
                             <div className="relative">
                                 <Scale className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
@@ -208,23 +238,155 @@ const QualityEntry = () => {
                                     required
                                 />
                             </div>
+                          </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Quality Grade</label>
-                            <div className="relative">
-                                <Award className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-                                <select
-                                    value={inspectionData.grade}
-                                    onChange={e => setInspectionData({...inspectionData, grade: e.target.value})}
-                                    className="input-field pl-10"
-                                >
-                                    <option value="A">Grade A (Premium)</option>
-                                    <option value="B">Grade B (Standard)</option>
-                                    <option value="C">Grade C (Low)</option>
-                                    <option value="Rejected">Rejected</option>
-                                </select>
+                        {/* Freshness Assessment Section */}
+                        <div className="pt-4 border-t border-slate-100">
+                          <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                            <Eye className="w-4 h-4 text-ocean-500" />
+                            Freshness Assessment
+                          </h4>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">Eye Clarity</label>
+                              <select
+                                value={inspectionData.eyeClarity}
+                                onChange={e => setInspectionData({...inspectionData, eyeClarity: e.target.value})}
+                                className="input-field text-sm"
+                              >
+                                <option value="clear">Clear & Bright</option>
+                                <option value="slightly_cloudy">Slightly Cloudy</option>
+                                <option value="cloudy">Cloudy</option>
+                                <option value="sunken">Sunken/Dull</option>
+                              </select>
                             </div>
+                            
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">Gill Color</label>
+                              <select
+                                value={inspectionData.gillColor}
+                                onChange={e => setInspectionData({...inspectionData, gillColor: e.target.value})}
+                                className="input-field text-sm"
+                              >
+                                <option value="bright_red">Bright Red</option>
+                                <option value="dark_red">Dark Red</option>
+                                <option value="pink">Pink</option>
+                                <option value="brown">Brown/Grey</option>
+                              </select>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">Skin Condition</label>
+                              <select
+                                value={inspectionData.skinCondition}
+                                onChange={e => setInspectionData({...inspectionData, skinCondition: e.target.value})}
+                                className="input-field text-sm"
+                              >
+                                <option value="intact">Intact & Shiny</option>
+                                <option value="slight_damage">Slight Damage</option>
+                                <option value="scales_missing">Scales Missing</option>
+                                <option value="damaged">Damaged</option>
+                              </select>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">Smell</label>
+                              <select
+                                value={inspectionData.smell}
+                                onChange={e => setInspectionData({...inspectionData, smell: e.target.value})}
+                                className="input-field text-sm"
+                              >
+                                <option value="fresh_sea">Fresh Sea Smell</option>
+                                <option value="neutral">Neutral</option>
+                                <option value="slight_odor">Slight Odor</option>
+                                <option value="strong_odor">Strong Odor</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Damage Assessment */}
+                        <div className="pt-4 border-t border-slate-100">
+                          <h4 className="font-medium text-slate-700 mb-3 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                            Damage Assessment
+                          </h4>
+                          
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Damage Type</label>
+                            <select
+                              value={inspectionData.damageType}
+                              onChange={e => setInspectionData({...inspectionData, damageType: e.target.value})}
+                              className="input-field text-sm"
+                            >
+                              <option value="none">No Damage</option>
+                              <option value="bruising">Bruising</option>
+                              <option value="cuts">Cuts/Tears</option>
+                              <option value="compression">Compression Damage</option>
+                              <option value="net_marks">Net Marks</option>
+                              <option value="predator">Predator Damage</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          
+                          {inspectionData.damageType !== 'none' && (
+                            <div className="mt-3 animate-fade-in">
+                              <label className="block text-xs font-medium text-slate-600 mb-1">Damage Notes</label>
+                              <textarea
+                                value={inspectionData.damageNotes}
+                                onChange={e => setInspectionData({...inspectionData, damageNotes: e.target.value})}
+                                className="input-field text-sm"
+                                rows="2"
+                                placeholder="Describe the damage..."
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Overall Grade */}
+                        <div className="pt-4 border-t border-slate-100">
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Overall Quality Grade</label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {['A', 'B', 'C', 'Rejected'].map(g => (
+                              <button
+                                key={g}
+                                type="button"
+                                onClick={() => setInspectionData({...inspectionData, grade: g})}
+                                className={`py-3 rounded-xl font-bold transition-all ${
+                                  inspectionData.grade === g
+                                    ? g === 'Rejected' 
+                                      ? 'bg-red-500 text-white shadow-lg'
+                                      : 'bg-ocean-500 text-white shadow-lg'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                {g === 'Rejected' ? 'REJ' : `Grade ${g}`}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">
+                            {inspectionData.grade === 'A' && 'Premium quality - suitable for sashimi/export'}
+                            {inspectionData.grade === 'B' && 'Standard quality - suitable for fresh market'}
+                            {inspectionData.grade === 'C' && 'Lower quality - suitable for processing'}
+                            {inspectionData.grade === 'Rejected' && 'Not suitable for human consumption'}
+                          </p>
+                        </div>
+
+                        {/* Inspector Notes */}
+                        <div className="pt-4 border-t border-slate-100">
+                          <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-slate-500" />
+                            Inspector Notes (Optional)
+                          </label>
+                          <textarea
+                            value={inspectionData.inspectorNotes}
+                            onChange={e => setInspectionData({...inspectionData, inspectorNotes: e.target.value})}
+                            className="input-field text-sm"
+                            rows="2"
+                            placeholder="Any additional observations..."
+                          />
                         </div>
 
                         <button 

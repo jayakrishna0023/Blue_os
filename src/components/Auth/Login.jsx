@@ -1,18 +1,18 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
-import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship, RefreshCw } from 'lucide-react';
+import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship, RefreshCw, Users, Briefcase } from 'lucide-react';
 import FisherRegistration from './FisherRegistration';
 import { useToast } from '../Shared/Toast';
 
 const Login = () => {
   const toast = useToast();
-  const [loginType, setLoginType] = useState('fisher'); // 'fisher' or 'vessel'
+  const [loginType, setLoginType] = useState('staff'); // 'staff' or 'fisher'
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
   const [showOtp, setShowOtp] = useState(false);
   
-  // Vessel Login State (Legacy/Owner)
+  // Staff Login State (Admin, Captain, Worker, Inspector)
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   
@@ -85,13 +85,13 @@ const Login = () => {
     }
   };
 
-  const handleVesselLogin = async (e) => {
+  const handleStaffLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      console.log('Attempting Vessel/Admin Login:', username);
+      console.log('Attempting Staff Login:', username);
       const response = await authAPI.login(username, password);
       console.log('Login Response:', response);
 
@@ -100,10 +100,10 @@ const Login = () => {
         console.log('User Role:', role);
         
         if (role === 'admin') navigate('/admin');
-        else if (role === 'captain' || role === 'vessel_owner') navigate('/captain');
+        else if (role === 'captain') navigate('/captain');
         else if (role === 'worker') navigate('/worker');
         else if (role === 'inspector') navigate('/inspector');
-        else setError(`Unknown user role: ${role}`);
+        else setError(`Unknown user role: ${role}. Use Vessel Owner login if you're a vessel owner.`);
       } else {
         setError(response.message || 'Invalid credentials');
       }
@@ -159,8 +159,15 @@ const Login = () => {
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl animate-slide-up">
           
-          {/* Role Toggle */}
+          {/* Role Toggle - Staff vs Fisher */}
           <div className="flex bg-slate-800/50 p-1 rounded-xl mb-6 sm:mb-8">
+            <button
+              onClick={() => { setLoginType('staff'); setError(''); }}
+              className={`flex-1 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-target ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+              <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              Staff Login
+            </button>
             <button
               onClick={() => { setLoginType('fisher'); setError(''); }}
               className={`flex-1 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-target ${loginType === 'fisher' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
@@ -168,14 +175,14 @@ const Login = () => {
               <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Fisher
             </button>
-            <button
-              onClick={() => { setLoginType('vessel'); setError(''); }}
-              className={`flex-1 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-target ${loginType === 'vessel' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-            >
-              <Ship className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden xs:inline">Vessel /</span> Admin
-            </button>
           </div>
+
+          {/* Helper text for Staff login */}
+          {loginType === 'staff' && (
+            <p className="text-slate-500 text-xs text-center mb-4 -mt-4">
+              For Admin, Captain, Worker & Inspector
+            </p>
+          )}
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 sm:p-4 rounded-xl flex items-center gap-2 sm:gap-3 text-xs sm:text-sm mb-4 sm:mb-6">
@@ -228,7 +235,7 @@ const Login = () => {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleVesselLogin} className="space-y-4 sm:space-y-6">
+            <form onSubmit={handleStaffLogin} className="space-y-4 sm:space-y-6">
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">Username</label>
                 <div className="relative group">
@@ -266,8 +273,39 @@ const Login = () => {
               >
                 {loading ? 'Signing In...' : 'Sign In'}
               </button>
+              
             </form>
           )}
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-3 bg-slate-900/50 text-slate-500">Vessel Owner?</span>
+            </div>
+          </div>
+
+          {/* Vessel Owner Links */}
+          <div className="flex gap-3">
+            <button 
+              type="button"
+              onClick={() => navigate('/vessel-owner/login')}
+              className="flex-1 py-3 px-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-all text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <Ship className="w-4 h-4" />
+              Login
+            </button>
+            <button 
+              type="button"
+              onClick={() => navigate('/register/vessel-owner')}
+              className="flex-1 py-3 px-4 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              Register
+            </button>
+          </div>
         </div>
       </div>
     </div>

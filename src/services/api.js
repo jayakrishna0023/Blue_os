@@ -174,6 +174,31 @@ export const authAPI = {
   getSessions: async () => {
     const response = await api.get('/auth/sessions');
     return response.data;
+  },
+  registerVesselOwner: async (data) => {
+    try {
+      const response = await api.post('/auth/vessel-owner/register', data);
+      console.log('Vessel Owner Registration Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Vessel Owner Registration Error:', error);
+      throw error;
+    }
+  },
+  vesselOwnerLogin: async (username, password) => {
+    try {
+      const response = await api.post('/auth/vessel-owner/login', { username, password });
+      if (response.data.success && response.data.user) {
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        if (response.data.token) {
+          sessionStorage.setItem('token', response.data.token);
+        }
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Vessel Owner Login Error:', error);
+      throw error;
+    }
   }
 };
 
@@ -313,8 +338,11 @@ export const mainAPI = {
     const response = await api.post('/crates/seal', { tripId, fishQrs });
     return response.data;
   },
-  updateCrateWithFish: async (crateId, fishData) => {
-    const response = await api.post(`/crates/${crateId}/add-fish`, { fishQrCodes: fishData.map(f => f.qr_code) });
+  updateCrateWithFish: async (crateId, fishData, packerId) => {
+    const response = await api.post(`/crates/${crateId}/add-fish`, { 
+      fishQrCodes: fishData.map(f => f.qr_code),
+      packerId: packerId  // Chain of custody: track who packed the crate
+    });
     return response.data;
   },
   assignCrate: async (data) => {
@@ -327,6 +355,12 @@ export const mainAPI = {
   },
   submitVesselRegistration: async (data) => {
     const response = await api.post('/vessels', data);
+    return response.data;
+  },
+  
+  // Export trip data for Excel generation
+  exportTripData: async (tripId) => {
+    const response = await api.get(`/export/trip/${tripId}`);
     return response.data;
   }
 };

@@ -313,12 +313,21 @@ const PublicTraceability = () => {
                           <MapPin className="w-4 h-4 text-blue-400" />
                         </div>
                         <div>
-                          <p className="text-xs text-slate-500 uppercase">Location</p>
-                          <p className="font-medium text-white">{traceData.location_name || 'At Sea'}</p>
-                          {(traceData.gps_lat || traceData.latitude) && (traceData.gps_lng || traceData.longitude) && (
-                            <p className="text-xs text-slate-500 font-mono mt-0.5">
-                              {traceData.gps_lat || traceData.latitude}, {traceData.gps_lng || traceData.longitude}
-                            </p>
+                          <p className="text-xs text-slate-500 uppercase">GPS Coordinates</p>
+                          {(traceData.gps_lat || traceData.latitude) && (traceData.gps_lng || traceData.longitude) ? (
+                            <div className="font-mono text-white">
+                              <span className="block text-sm">
+                                Lat: {Number(traceData.gps_lat || traceData.latitude).toFixed(6)}°
+                              </span>
+                              <span className="block text-sm">
+                                Lng: {Number(traceData.gps_lng || traceData.longitude).toFixed(6)}°
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="font-medium text-white">At Sea</p>
+                          )}
+                          {traceData.location_name && (
+                            <p className="text-xs text-slate-400 mt-1">{traceData.location_name}</p>
                           )}
                         </div>
                       </div>

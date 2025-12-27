@@ -156,8 +156,8 @@ const CrateManagement = () => {
 
     setLoading(true);
     try {
-      // Update crate with fish count
-      const response = await mainAPI.updateCrateWithFish(currentCrate.id, currentCrateFish);
+      // Update crate with fish count and packer info (chain of custody)
+      const response = await mainAPI.updateCrateWithFish(currentCrate.id, currentCrateFish, user?.id);
       
       if (response.success) {
         setInspectedCrate({

@@ -191,7 +191,11 @@ const WorkerEntry = () => {
                 vessel: log.trips?.vessel_name,
                 tripCode: log.trips?.trip_code,
                 date: new Date(log.created_at).toLocaleDateString(),
-                location: log.location_name || 'Unknown Location'
+                location: log.gps_lat && log.gps_lng 
+                  ? `${Number(log.gps_lat).toFixed(6)}°, ${Number(log.gps_lng).toFixed(6)}°`
+                  : log.location_name || 'Unknown Location',
+                gps_lat: log.gps_lat,
+                gps_lng: log.gps_lng
             });
 
             setFormData(prev => ({

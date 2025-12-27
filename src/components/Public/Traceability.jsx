@@ -155,11 +155,24 @@ const Traceability = () => {
                     <div className="flex items-start gap-3">
                       <MapPin className="w-5 h-5 text-slate-500 mt-0.5" />
                       <div>
-                        <p className="text-sm text-slate-500">Location</p>
-                        <p className="font-medium text-slate-300">{traceData.location_name || 'At Sea'}</p>
-                        <p className="text-xs text-slate-500 font-mono mt-1">
-                            {traceData.latitude && traceData.longitude ? `${traceData.latitude}, ${traceData.longitude}` : ''}
-                        </p>
+                        <p className="text-sm text-slate-500">GPS Coordinates</p>
+                        <div className="font-mono text-slate-300">
+                          {traceData.latitude || traceData.gps_lat ? (
+                            <>
+                              <span className="block">
+                                Lat: {Number(traceData.latitude || traceData.gps_lat).toFixed(6)}°
+                              </span>
+                              <span className="block">
+                                Lng: {Number(traceData.longitude || traceData.gps_lng).toFixed(6)}°
+                              </span>
+                            </>
+                          ) : (
+                            <span>At Sea</span>
+                          )}
+                        </div>
+                        {traceData.location_name && (
+                          <p className="text-xs text-slate-500 mt-1">{traceData.location_name}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

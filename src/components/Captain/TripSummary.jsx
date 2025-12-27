@@ -207,7 +207,11 @@ const TripSummary = ({ trip, onComplete }) => {
                       <div className="flex gap-2">
                         <span>{log.weight_kg || 0} kg</span>
                         <span>•</span>
-                        <span className="truncate">{log.location_name || 'Unknown'}</span>
+                        <span className="font-mono">
+                          {log.gps_lat && log.gps_lng 
+                            ? `${Number(log.gps_lat).toFixed(6)}°, ${Number(log.gps_lng).toFixed(6)}°`
+                            : log.location_name || 'Unknown'}
+                        </span>
                       </div>
                       <span className="font-mono text-xs text-slate-400">ID: {log.qr_code}</span>
                     </div>
@@ -254,8 +258,12 @@ const TripSummary = ({ trip, onComplete }) => {
                       </td>
                       <td className="p-2 sm:p-3 font-medium text-slate-800 text-xs sm:text-sm">{log.species_name}</td>
                       <td className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs text-slate-500">{log.qr_code}</td>
-                      <td className="p-2 sm:p-3 text-slate-600 text-xs sm:text-sm max-w-[100px] sm:max-w-[150px] truncate" title={log.location_name}>
-                        {log.location_name || 'Unknown'}
+                      <td className="p-2 sm:p-3 text-slate-600 text-xs sm:text-sm max-w-[100px] sm:max-w-[150px]" title={log.gps_lat && log.gps_lng ? `${log.gps_lat}, ${log.gps_lng}` : log.location_name}>
+                        <div className="font-mono">
+                          {log.gps_lat && log.gps_lng 
+                            ? `${Number(log.gps_lat).toFixed(6)}°, ${Number(log.gps_lng).toFixed(6)}°`
+                            : log.location_name || 'Unknown'}
+                        </div>
                       </td>
                       <td className="p-2 sm:p-3 text-xs sm:text-sm">{log.weight_kg || '-'} kg</td>
                       <td className="p-2 sm:p-3">

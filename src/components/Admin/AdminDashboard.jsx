@@ -15,11 +15,13 @@ import {
 const PARTICIPANT_TYPES = {
   vessel_owner: { label: 'Vessel Owner', color: 'blue', icon: Ship },
   fisher: { label: 'Fisher', color: 'cyan', icon: Fish },
+  captain: { label: 'Captain', color: 'indigo', icon: Anchor },
+  worker: { label: 'Worker', color: 'teal', icon: Users },
   quality_inspector: { label: 'Quality Inspector', color: 'emerald', icon: UserCheck },
+  inspector: { label: 'Inspector', color: 'emerald', icon: UserCheck },
   crate_packer: { label: 'Crate Packer', color: 'orange', icon: FileText },
   logistics_provider: { label: 'Logistics Provider', color: 'purple', icon: Truck },
   admin: { label: 'Administrator', color: 'pink', icon: Users },
-  captain: { label: 'Captain', color: 'indigo', icon: Anchor },
   vessel: { label: 'Vessel (Asset)', color: 'slate', icon: Ship },
   facility: { label: 'Facility (Asset)', color: 'amber', icon: Building2 }
 };
@@ -382,18 +384,33 @@ This is a system-generated document from BlueOS.
     }
     
     try {
+      console.log('Adding participant:', newParticipant);
       const response = await adminAPI.createRegistryEntry(newParticipant);
+      console.log('Add participant response:', response);
+      
       if (response.success) {
-        toast.success(`Participant added successfully! Root ID: ${response.data.root_id}`, 'Added');
+        // Show success with login credentials if available
+        const message = response.message || 'Participant added successfully!';
+        toast.success(message, 'Added');
+        
+        // If login credentials were returned, show them in an alert
+        if (response.message && response.message.includes('Username:')) {
+          setTimeout(() => {
+            alert(`Login Credentials:\n${response.message}`);
+          }, 500);
+        }
+        
         setShowAddParticipant(false);
         setNewParticipant({ name: '', type: 'fisher', email: '', contact_number: '', address: '' });
         loadDashboardData();
       } else {
+        console.error('Failed to add participant:', response);
         toast.error('Failed to add participant: ' + (response.message || 'Unknown error'), 'Error');
       }
     } catch (error) {
       console.error('Error adding participant:', error);
-      toast.error('An error occurred while adding participant.', 'Error');
+      const errorMsg = error.response?.data?.message || error.message || 'An error occurred while adding participant.';
+      toast.error(errorMsg, 'Error');
     }
   };
 
@@ -640,9 +657,15 @@ This is a system-generated document from BlueOS.
                                 }`}>{log.quality_grade}</span>
                               ) : <span className="text-slate-600">-</span>}
                             </td>
-                            <td className="p-4 text-slate-400 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {log.location_name}
+                            <td className="p-4 text-slate-400">
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-mono text-xs">
+                                    {log.gps_lat && log.gps_lng 
+                                      ? `${Number(log.gps_lat).toFixed(6)}°, ${Number(log.gps_lng).toFixed(6)}°`
+                                      : log.location_name || 'Unknown'}
+                                  </span>
+                                </div>
                             </td>
                             <td className="p-4 text-slate-400 font-mono text-xs">
                                 {log.timestamp ? new Date(log.timestamp).toLocaleString('en-IN', { 

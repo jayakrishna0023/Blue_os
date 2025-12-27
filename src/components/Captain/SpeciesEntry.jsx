@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { mainAPI } from '../../services/api';
 import { getGeolocation, getLocationName, compressImage, getCurrentUser } from '../../services/utils';
+import { FAO_SPECIES, getFAOZone, getSpeciesByCode } from '../../services/faoConstants';
 import CameraModal from '../Shared/CameraModal';
 import QRScannerModal from '../Shared/QRScannerModal';
+import SpeciesSelector from '../Shared/SpeciesSelector';
 import { useToast } from '../Shared/Toast';
-import { MapPin, Camera, QrCode, Plus, Trash2, Save, Fish, Image as ImageIcon, X } from 'lucide-react';
+import { MapPin, Camera, QrCode, Plus, Trash2, Save, Fish, Image as ImageIcon, X, Anchor, ChevronDown } from 'lucide-react';
 
 // Storage keys for data persistence
 const SPECIES_LIST_STORAGE_KEY = 'blueos_species_list_draft';
@@ -13,6 +15,7 @@ const CURRENT_ENTRY_STORAGE_KEY = 'blueos_current_entry_draft';
 const SpeciesEntry = ({ trip, onCatchSaved }) => {
   const toast = useToast();
   const [location, setLocation] = useState({ lat: null, lng: null, name: 'Fetching...' });
+  const [isSpeciesSelectorOpen, setIsSpeciesSelectorOpen] = useState(false);
   
   // Load saved species list from storage
   const [speciesList, setSpeciesList] = useState(() => {
@@ -29,13 +32,20 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
     try {
       const saved = sessionStorage.getItem(CURRENT_ENTRY_STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Restore species object if it was saved
+        if (parsed.speciesCode) {
+          parsed.selectedSpecies = getSpeciesByCode(parsed.speciesCode);
+        }
+        return parsed;
       }
     } catch {
       // Ignore
     }
     return {
       species: '',
+      speciesCode: '',
+      selectedSpecies: null,
       customSpecies: '',
       images: [],
       qrCodes: []
@@ -45,6 +55,14 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Calculate FAO zone based on current location
+  const faoZone = useMemo(() => {
+    if (location.lat && location.lng) {
+      return getFAOZone(location.lat, location.lng);
+    }
+    return null;
+  }, [location.lat, location.lng]);
 
   // Save species list to sessionStorage whenever it changes
   useEffect(() => {
@@ -165,7 +183,11 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
   };
 
   const handleAddSpecies = () => {
-    const speciesName = currentEntry.species === 'Other' ? currentEntry.customSpecies : currentEntry.species;
+    const speciesName = currentEntry.selectedSpecies 
+      ? currentEntry.selectedSpecies.name 
+      : (currentEntry.species === 'Other' ? currentEntry.customSpecies : currentEntry.species);
+    
+    const speciesCode = currentEntry.selectedSpecies?.code || 'OTH';
     
     if (!speciesName) {
       toast.warning('Please select a species', 'Validation');
@@ -176,11 +198,19 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
       return;
     }
 
-    setSpeciesList(prev => [...prev, { ...currentEntry, speciesName, timestamp: new Date() }]);
+    setSpeciesList(prev => [...prev, { 
+      ...currentEntry, 
+      speciesName, 
+      speciesCode,
+      scientificName: currentEntry.selectedSpecies?.scientificName || '',
+      timestamp: new Date() 
+    }]);
     
     // Reset current entry
     setCurrentEntry({
       species: '',
+      speciesCode: '',
+      selectedSpecies: null,
       customSpecies: '',
       images: [],
       qrCodes: []
@@ -208,6 +238,9 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
             tripId: trip.id,
             qr: qr,
             species: entry.speciesName,
+            speciesCode: entry.speciesCode || 'OTH',
+            scientificName: entry.scientificName || '',
+            faoZone: faoZone?.code || null,
             images: entry.images,
             latitude: location.lat,
             longitude: location.lng,
@@ -243,6 +276,8 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
         setSpeciesList([]);
         setCurrentEntry({
           species: '',
+          speciesCode: '',
+          selectedSpecies: null,
           customSpecies: '',
           images: [],
           qrCodes: []
@@ -257,6 +292,8 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
         setSpeciesList([]);
         setCurrentEntry({
           species: '',
+          speciesCode: '',
+          selectedSpecies: null,
           customSpecies: '',
           images: [],
           qrCodes: []
@@ -274,29 +311,48 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
     }
   };
 
-  const commonSpecies = [
-    "Tuna", "Mackerel", "Sardine", "Snapper", "Grouper", "Barracuda", "Squid", "Prawns"
-  ];
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Location Header */}
-      <div className="glass-card p-4 flex items-center justify-between bg-ocean-50/50">
-        <div className="flex items-center gap-3">
-          <div className="bg-ocean-100 p-2 rounded-full">
-            <MapPin className="w-5 h-5 text-ocean-600" />
+      {/* Location Header - GPS Coordinates in Decimal Degrees with FAO Zone */}
+      <div className="glass-card p-4 bg-ocean-50/50">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-ocean-100 p-2 rounded-full">
+              <MapPin className="w-5 h-5 text-ocean-600" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide">GPS Location</p>
+              <p className="text-xs text-slate-400">{location.name || 'Fetching location...'}</p>
+            </div>
+          </div>
+          {/* FAO Zone Badge */}
+          {faoZone && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 rounded-lg border border-blue-200">
+              <Anchor className="w-4 h-4 text-blue-600" />
+              <div className="text-right">
+                <p className="text-xs text-blue-600 font-medium">FAO Zone {faoZone.code}</p>
+                <p className="text-xs text-blue-500">{faoZone.name}</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4 bg-white/60 rounded-xl p-3 border border-ocean-100">
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Latitude (°N/S)</p>
+            <p className="font-mono text-lg font-bold text-ocean-700">
+              {location.lat ? `${location.lat >= 0 ? '' : '-'}${Math.abs(location.lat).toFixed(6)}°` : '--'}
+            </p>
           </div>
           <div>
-            <p className="text-xs text-slate-500">Current Location</p>
-            <p className="font-medium text-slate-800">{location.name}</p>
+            <p className="text-xs text-slate-500 mb-1">Longitude (°E/W)</p>
+            <p className="font-mono text-lg font-bold text-ocean-700">
+              {location.lng ? `${location.lng >= 0 ? '' : '-'}${Math.abs(location.lng).toFixed(6)}°` : '--'}
+            </p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-500">Coordinates</p>
-          <p className="font-mono text-xs text-slate-600">
-            {location.lat?.toFixed(4)}, {location.lng?.toFixed(4)}
-          </p>
-        </div>
+        {location.accuracy && (
+          <p className="text-xs text-slate-400 mt-2 text-center">Accuracy: ±{Math.round(location.accuracy)}m</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -340,21 +396,39 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
                 </div>
               )}
 
-              {/* Species Selection */}
+              {/* Species Selection - Image Grid Selector */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select Species</label>
-                <select
-                  value={currentEntry.species}
-                  onChange={(e) => setCurrentEntry(prev => ({ ...prev, species: e.target.value }))}
-                  className="input-field text-slate-900 bg-white"
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select Species (FAO Standard)</label>
+                <button
+                  type="button"
+                  onClick={() => setIsSpeciesSelectorOpen(true)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                    currentEntry.selectedSpecies
+                      ? 'border-ocean-500 bg-ocean-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
                 >
-                  <option value="">-- Select Species --</option>
-                  {commonSpecies.map(s => <option key={s} value={s}>{s}</option>)}
-                  <option value="Other">Other</option>
-                </select>
+                  {currentEntry.selectedSpecies ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden">
+                        <Fish className="w-6 h-6 text-ocean-500" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-slate-800">
+                          <span className="text-ocean-600 font-mono">{currentEntry.selectedSpecies.code}</span> - {currentEntry.selectedSpecies.name}
+                        </p>
+                        <p className="text-xs text-slate-500 italic">{currentEntry.selectedSpecies.scientificName}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">-- Tap to select species --</span>
+                  )}
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                </button>
               </div>
 
-              {currentEntry.species === 'Other' && (
+              {/* Custom species option */}
+              {currentEntry.selectedSpecies?.code === 'OTH' && (
                 <div className="animate-fade-in">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Specify Species</label>
                   <input
@@ -424,8 +498,13 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
                 speciesList.map((item, idx) => (
                   <div key={idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-start">
                     <div>
-                      <p className="font-bold text-slate-800">{item.speciesName}</p>
+                      <p className="font-bold text-slate-800">
+                        <span className="text-ocean-600 font-mono text-sm">{item.speciesCode}</span> {item.speciesName}
+                      </p>
                       <p className="text-xs text-slate-500">{item.qrCodes.length} fish tagged</p>
+                      {item.scientificName && (
+                        <p className="text-xs text-slate-400 italic">{item.scientificName}</p>
+                      )}
                       <div className="flex gap-1 mt-1">
                         {item.images.length > 0 && <ImageIcon className="w-3 h-3 text-slate-400" />}
                       </div>
@@ -468,6 +547,18 @@ const SpeciesEntry = ({ trip, onCatchSaved }) => {
         isOpen={isScannerOpen} 
         onClose={() => setIsScannerOpen(false)} 
         onScan={handleQRScan} 
+      />
+      
+      <SpeciesSelector
+        isOpen={isSpeciesSelectorOpen}
+        onClose={() => setIsSpeciesSelectorOpen(false)}
+        onSelect={(species) => setCurrentEntry(prev => ({
+          ...prev,
+          selectedSpecies: species,
+          species: species.name,
+          speciesCode: species.code
+        }))}
+        selectedSpecies={currentEntry.selectedSpecies}
       />
     </div>
   );

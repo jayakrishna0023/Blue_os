@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { mainAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
-import { Ship, Calendar, MapPin, Clock, CheckCircle, XCircle, AlertCircle, DollarSign } from 'lucide-react';
+import { exportTripToExcel } from '../../services/excelExport';
+import { Ship, Calendar, MapPin, Clock, CheckCircle, XCircle, AlertCircle, DollarSign, Download, Loader } from 'lucide-react';
 import TripExpenseForm from './TripExpenseForm';
 
 const TripHistory = () => {
@@ -10,6 +11,8 @@ const TripHistory = () => {
   const [error, setError] = useState('');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
+  const [exportingTripId, setExportingTripId] = useState(null);
+  const [exportStatus, setExportStatus] = useState('');
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -151,16 +154,46 @@ const TripHistory = () => {
                             <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 text-right">Trip Code</p>
                             <p className="font-mono text-xl font-bold text-blue-600 text-right">{trip.trip_code}</p>
                         </div>
-                        <button
-                            onClick={() => {
-                                setSelectedTrip(trip);
-                                setShowExpenseModal(true);
-                            }}
-                            className="flex items-center gap-1 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
-                        >
-                            <DollarSign className="w-4 h-4" />
-                            Add Expenses
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                              onClick={async () => {
+                                setExportingTripId(trip.id);
+                                try {
+                                  await exportTripToExcel(trip.id, setExportStatus);
+                                } catch (err) {
+                                  console.error('Export error:', err);
+                                  alert('Export failed: ' + err.message);
+                                } finally {
+                                  setExportingTripId(null);
+                                  setExportStatus('');
+                                }
+                              }}
+                              disabled={exportingTripId === trip.id}
+                              className="flex items-center gap-1 text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                          >
+                              {exportingTripId === trip.id ? (
+                                <>
+                                  <Loader className="w-4 h-4 animate-spin" />
+                                  {exportStatus || 'Exporting...'}
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4" />
+                                  Export
+                                </>
+                              )}
+                          </button>
+                          <button
+                              onClick={() => {
+                                  setSelectedTrip(trip);
+                                  setShowExpenseModal(true);
+                              }}
+                              className="flex items-center gap-1 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+                          >
+                              <DollarSign className="w-4 h-4" />
+                              Expenses
+                          </button>
+                        </div>
                     </div>
                 )}
               </div>
