@@ -8,8 +8,11 @@ import SpeciesEntry from './SpeciesEntry';
 import TripHistory from './TripHistory';
 import TripSummary from './TripSummary';
 import UserProfileCard from '../Shared/UserProfileCard';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 
 const CaptainDashboard = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('trip');
   const [currentTrip, setCurrentTrip] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -90,11 +93,11 @@ const CaptainDashboard = () => {
   };
 
   const tabs = [
-    { id: 'profile', label: 'My Profile', icon: User },
-    { id: 'trip', label: 'Trip Details', icon: Ship },
-    { id: 'species', label: 'Catch Log', icon: Fish, disabled: !currentTrip },
-    { id: 'history', label: 'Trip History', icon: FileText },
-    { id: 'summary', label: 'Summary', icon: FileText, disabled: !currentTrip },
+    { id: 'profile', label: t('profile'), icon: User },
+    { id: 'trip', label: t('trips'), icon: Ship },
+    { id: 'species', label: t('catch'), icon: Fish, disabled: !currentTrip },
+    { id: 'history', label: t('history'), icon: FileText },
+    { id: 'summary', label: t('tripSummary'), icon: FileText, disabled: !currentTrip },
   ];
 
   return (
@@ -108,8 +111,8 @@ const CaptainDashboard = () => {
                 <Ship className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-base sm:text-xl font-bold text-slate-900">Captain's Log</h1>
-                <p className="text-[10px] sm:text-xs text-slate-500 hidden xs:block">Welcome, {user?.full_name || 'Captain'}</p>
+                <h1 className="text-base sm:text-xl font-bold text-slate-900">{t('captainDashboard')}</h1>
+                <p className="text-[10px] sm:text-xs text-slate-500 hidden xs:block">{t('welcome')}, {user?.full_name || 'Captain'}</p>
               </div>
             </div>
 
@@ -136,6 +139,7 @@ const CaptainDashboard = () => {
             </nav>
 
             <div className="flex items-center gap-2">
+              <LanguageToggle className="hidden sm:flex !bg-slate-100 !border-slate-200" />
               <button 
                 onClick={handleLogout}
                 className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"

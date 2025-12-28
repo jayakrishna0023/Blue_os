@@ -4,8 +4,11 @@ import { authAPI, fisherAPI } from '../../services/api';
 import { getCurrentUser } from '../../services/utils';
 import { User, LogOut, QrCode, Ship, Calendar, MapPin, Clock, Download, RefreshCw } from 'lucide-react';
 import QRCode from 'qrcode';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 
 const FisherDashboard = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('profile');
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,11 +66,14 @@ const FisherDashboard = () => {
             <div className="bg-blue-600 p-1.5 sm:p-2 rounded-lg">
               <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h1 className="font-bold text-slate-900 text-sm sm:text-base">Fisher Dashboard</h1>
+            <h1 className="font-bold text-slate-900 text-sm sm:text-base">{t('fisherDashboard')}</h1>
           </div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-red-600 p-2 touch-target">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageToggle className="!bg-slate-100 !border-slate-200" />
+            <button onClick={handleLogout} className="text-slate-400 hover:text-red-600 p-2 touch-target">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -80,7 +86,7 @@ const FisherDashboard = () => {
               activeTab === 'profile' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'
             }`}
           >
-            My Profile
+            {t('profile')}
           </button>
           <button
             onClick={() => setActiveTab('trips')}
@@ -88,7 +94,7 @@ const FisherDashboard = () => {
               activeTab === 'trips' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'
             }`}
           >
-            My Trips
+            {t('myTrips')}
           </button>
         </div>
       </div>
@@ -104,11 +110,11 @@ const FisherDashboard = () => {
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50"></div>
                 <div className="relative flex justify-between items-start">
                   <div>
-                    <p className="text-blue-200 text-[10px] sm:text-xs uppercase tracking-widest font-bold">BlueOS Network</p>
-                    <h2 className="text-base sm:text-xl font-bold text-white mt-1">Fisher Identity Card</h2>
+                    <p className="text-blue-200 text-[10px] sm:text-xs uppercase tracking-widest font-bold">{t('blueosNetwork')}</p>
+                    <h2 className="text-base sm:text-xl font-bold text-white mt-1">{t('fisherIdCard')}</h2>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full">
-                    <span className="text-[10px] sm:text-xs font-bold text-white">● VERIFIED</span>
+                    <span className="text-[10px] sm:text-xs font-bold text-white">● {t('verified')}</span>
                   </div>
                 </div>
               </div>
@@ -131,7 +137,7 @@ const FisherDashboard = () => {
                         </a>
                       </>
                     ) : (
-                      <div className="w-28 h-28 sm:w-40 sm:h-40 flex items-center justify-center text-slate-400 bg-slate-100 rounded-lg text-sm">Generating...</div>
+                      <div className="w-28 h-28 sm:w-40 sm:h-40 flex items-center justify-center text-slate-400 bg-slate-100 rounded-lg text-sm">{t('generating')}</div>
                     )}
                   </div>
                   
@@ -150,15 +156,15 @@ const FisherDashboard = () => {
                   <div className="w-full grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
                       <p className="text-lg sm:text-2xl font-bold text-blue-600">{trips.length}</p>
-                      <p className="text-[10px] sm:text-xs text-blue-500">Trips</p>
+                      <p className="text-[10px] sm:text-xs text-blue-500">{t('trips')}</p>
                     </div>
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
                       <p className="text-lg sm:text-2xl font-bold text-green-600">₹{trips.length * 1500}</p>
-                      <p className="text-[10px] sm:text-xs text-green-500">Est. Earned</p>
+                      <p className="text-[10px] sm:text-xs text-green-500">{t('earnings')}</p>
                     </div>
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
                       <p className="text-lg sm:text-2xl font-bold text-amber-600">5.0</p>
-                      <p className="text-[10px] sm:text-xs text-amber-500">Rating</p>
+                      <p className="text-[10px] sm:text-xs text-amber-500">{t('rating')}</p>
                     </div>
                   </div>
                   
@@ -169,7 +175,7 @@ const FisherDashboard = () => {
                         <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] sm:text-xs text-slate-400">Mobile Number</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400">{t('mobileNumberLabel')}</p>
                         <p className="font-medium text-slate-800 text-sm sm:text-base truncate">{user?.mobile_number || 'N/A'}</p>
                       </div>
                     </div>
@@ -179,7 +185,7 @@ const FisherDashboard = () => {
                         <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] sm:text-xs text-slate-400">Father's Name</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400">{t('fathersName')}</p>
                         <p className="font-medium text-slate-800 text-sm sm:text-base truncate">{user?.fathers_name || 'N/A'}</p>
                       </div>
                     </div>
@@ -189,7 +195,7 @@ const FisherDashboard = () => {
                         <User className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] sm:text-xs text-red-400">Emergency Contact</p>
+                        <p className="text-[10px] sm:text-xs text-red-400">{t('emergencyContact')}</p>
                         <p className="font-bold text-red-600 text-sm sm:text-base">{user?.emergency_contact_number || 'Not Set'}</p>
                         <p className="text-[10px] sm:text-xs text-slate-500 truncate">{user?.emergency_contact_name}</p>
                       </div>
@@ -212,17 +218,17 @@ const FisherDashboard = () => {
                 className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
+                {t('refresh')}
               </button>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 text-slate-500">Loading trips...</div>
+              <div className="text-center py-8 text-slate-500">{t('loadingTrips')}</div>
             ) : trips.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
                 <Ship className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">No trips recorded yet.</p>
-                <p className="text-xs text-slate-400 mt-2">When a captain adds you to a trip, it will appear here.</p>
+                <p className="text-slate-500">{t('noTripsYet')}</p>
+                <p className="text-xs text-slate-400 mt-2">{t('noTripsMessage')}</p>
               </div>
             ) : (
               trips.map((trip, idx) => (
@@ -242,21 +248,21 @@ const FisherDashboard = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs">Dep: {new Date(trip.departure_date).toLocaleDateString()}</span>
+                      <span className="text-xs">{t('departure')}: {new Date(trip.departure_date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs">Joined: {new Date(trip.joined_at).toLocaleDateString()}</span>
+                      <span className="text-xs">{t('joined')}: {new Date(trip.joined_at).toLocaleDateString()}</span>
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Port</p>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{t('port')}</p>
                       <p className="text-sm font-medium text-slate-700 truncate">{trip.departure_port || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Method</p>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{t('method')}</p>
                       <p className="text-sm font-medium text-slate-700 truncate">{trip.fishing_method || 'N/A'}</p>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Shared/Toast';
+import { LanguageProvider } from './context/LanguageContext';
 import LandingPage from './components/LandingPage';
 import Login from './components/Auth/Login';
 import VesselOwnerLogin from './components/Auth/VesselOwnerLogin';
@@ -84,9 +85,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 function App() {
   return (
-    <ToastProvider>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <LanguageProvider>
+      <ToastProvider>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <div className="min-h-screen bg-slate-950 text-white font-sans">
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -168,6 +170,7 @@ function App() {
         </div>
       </Router>
     </ToastProvider>
+    </LanguageProvider>
   );
 }
 
