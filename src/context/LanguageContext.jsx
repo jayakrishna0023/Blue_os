@@ -183,6 +183,19 @@ const translations = {
     method: 'Method',
     departure: 'Dep',
     joined: 'Joined',
+    
+    // Fisher Registration
+    fisherRegistration: 'Fisher Registration',
+    fullName: 'Full Name',
+    homePort: 'Home Port',
+    permanentAddress: 'Permanent Address',
+    emergencyContactSection: 'Emergency Contact',
+    contactName: 'Contact Name',
+    contactNumber: 'Contact Number',
+    creatingProfile: 'Creating Profile...',
+    createProfile: 'Create Profile',
+    registrationError: 'Registration failed',
+    networkError: 'Network error during registration. Please check console.',
   },
   
   ta: {
@@ -366,6 +379,19 @@ const translations = {
     method: 'முறை',
     departure: 'புறப்பட்டது',
     joined: 'சேர்ந்தது',
+    
+    // Fisher Registration
+    fisherRegistration: 'மீனவர் பதிவு',
+    fullName: 'முழு பெயர்',
+    homePort: 'வீட்டு துறைமுகம்',
+    permanentAddress: 'நிரந்தர முகவரி',
+    emergencyContactSection: 'அவசர தொடர்பு',
+    contactName: 'தொடர்பு பெயர்',
+    contactNumber: 'தொடர்பு எண்',
+    creatingProfile: 'சுயவிவரம் உருவாக்குகிறது...',
+    createProfile: 'சுயவிவரம் உருவாக்கு',
+    registrationError: 'பதிவு தோல்வியுற்றது',
+    networkError: 'பதிவின் போது நெட்வொர்க் பிழை. தயவுசெய்து கன்சோல் சரிபார்க்கவும்.',
   }
 };
 

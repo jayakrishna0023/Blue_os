@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 import { User, Phone, MapPin, Home, Heart, AlertCircle, Save } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 
 const FisherRegistration = ({ mobile, onComplete }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     fullName: '',
     fathersName: '',
@@ -35,11 +38,11 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         if (onComplete) onComplete();
         else navigate('/fisher');
       } else {
-        setError(response.message || 'Registration failed');
+        setError(response.message || t('registrationError'));
       }
     } catch (err) {
       console.error('Registration Error:', err);
-      setError('Network error during registration. Please check console.');
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
@@ -47,7 +50,10 @@ const FisherRegistration = ({ mobile, onComplete }) => {
 
   return (
     <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-xl">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Fisher Registration</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-slate-800">{t('fisherRegistration')}</h2>
+        <LanguageToggle className="!bg-slate-100 !border-slate-200" />
+      </div>
       
       {error && (
         <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 flex items-center gap-2 text-sm">
@@ -58,7 +64,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('fullName')}</label>
           <div className="relative">
             <User className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <input
@@ -73,7 +79,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Father's Name</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('fathersName')}</label>
           <div className="relative">
             <User className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <input
@@ -88,7 +94,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('mobileNumberLabel')}</label>
           <div className="relative">
             <Phone className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <input
@@ -102,7 +108,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Home Port</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('homePort')}</label>
           <div className="relative">
             <MapPin className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <input
@@ -117,7 +123,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Permanent Address</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('permanentAddress')}</label>
           <div className="relative">
             <Home className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
             <textarea
@@ -132,10 +138,10 @@ const FisherRegistration = ({ mobile, onComplete }) => {
         </div>
 
         <div className="border-t border-slate-200 pt-4 mt-4">
-          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Emergency Contact</h3>
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">{t('emergencyContactSection')}</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('contactName')}</label>
               <div className="relative">
                 <Heart className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
                 <input
@@ -149,7 +155,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('contactNumber')}</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
                 <input
@@ -170,10 +176,10 @@ const FisherRegistration = ({ mobile, onComplete }) => {
           disabled={loading}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 mt-6"
         >
-          {loading ? 'Creating Profile...' : (
+          {loading ? t('creatingProfile') : (
             <>
               <Save className="w-5 h-5" />
-              Create Profile
+              {t('createProfile')}
             </>
           )}
         </button>
