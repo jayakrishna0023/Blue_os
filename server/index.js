@@ -1247,6 +1247,221 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' });
 });
 
+// ==================== VESSEL OWNER OTP LOGIN ====================
+
+// Send OTP for Vessel Owner
+app.post('/api/auth/vessel-owner/send-otp', async (req, res) => {
+    const { mobile } = req.body;
+
+    console.log('[Vessel Owner Send OTP] Request for mobile:', mobile);
+
+    if (!mobile || mobile.length < 10) {
+        return res.status(400).json({
+            success: false,
+            message: 'Please enter a valid mobile number'
+        });
+    }
+
+    try {
+        // Check if vessel owner exists in users table (approved)
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('phone_number', mobile)
+            .eq('role', 'vessel_owner')
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Database error:', error);
+            throw error;
+        }
+
+        // Also check pending registrations
+        const { data: pending } = await supabase
+            .from('pending_registrations')
+            .select('*')
+            .eq('contact_info', mobile)
+            .eq('type', 'vessel_owner')
+            .single();
+
+        if (!user && !pending) {
+            console.log('[Vessel Owner Send OTP] No account found for mobile:', mobile);
+            return res.json({
+                success: false,
+                message: 'No vessel owner account found with this mobile number'
+            });
+        }
+
+        if (!user && pending && pending.status === 'pending') {
+            return res.json({
+                success: false,
+                message: 'Your registration is pending approval. Please wait for admin confirmation.'
+            });
+        }
+
+        // Generate OTP (6 digits) - In production, send via SMS
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Store OTP in session (expires in 10 minutes)
+        const otpKey = `otp_${mobile}`;
+        if (!activeSessions.has(otpKey)) {
+            activeSessions.set(otpKey, {
+                otp: otp,
+                expiresAt: Date.now() + (10 * 60 * 1000), // 10 minutes
+                attempts: 0
+            });
+        }
+
+        console.log('[Vessel Owner Send OTP] OTP sent to:', mobile, '(Test OTP:', otp, ')');
+
+        res.json({
+            success: true,
+            message: 'OTP sent to your registered mobile number',
+            testOtp: otp // Remove in production
+        });
+    } catch (error) {
+        console.error('[Vessel Owner Send OTP] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error sending OTP: ' + error.message
+        });
+    }
+});
+
+// Verify OTP for Vessel Owner
+app.post('/api/auth/vessel-owner/verify-otp', async (req, res) => {
+    const { mobile, otp } = req.body;
+
+    console.log('[Vessel Owner Verify OTP] Request for mobile:', mobile);
+
+    if (!mobile || !otp) {
+        return res.status(400).json({
+            success: false,
+            message: 'Mobile number and OTP are required'
+        });
+    }
+
+    try {
+        // Check stored OTP
+        const otpKey = `otp_${mobile}`;
+        const storedOtpData = activeSessions.get(otpKey);
+
+        if (!storedOtpData) {
+            return res.json({
+                success: false,
+                message: 'OTP expired. Please request a new one.'
+            });
+        }
+
+        // Check if OTP is expired
+        if (Date.now() > storedOtpData.expiresAt) {
+            activeSessions.delete(otpKey);
+            return res.json({
+                success: false,
+                message: 'OTP expired. Please request a new one.'
+            });
+        }
+
+        // Check if OTP matches
+        if (storedOtpData.otp !== otp) {
+            storedOtpData.attempts++;
+            
+            if (storedOtpData.attempts > 3) {
+                activeSessions.delete(otpKey);
+                return res.json({
+                    success: false,
+                    message: 'Too many failed attempts. Please request a new OTP.'
+                });
+            }
+
+            return res.json({
+                success: false,
+                message: 'Invalid OTP. Please try again.'
+            });
+        }
+
+        // OTP is valid, clear it
+        activeSessions.delete(otpKey);
+
+        // Fetch vessel owner data
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('phone_number', mobile)
+            .eq('role', 'vessel_owner')
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Database error:', error);
+            throw error;
+        }
+
+        if (!user) {
+            console.log('[Vessel Owner Verify OTP] User not found after OTP verification');
+            return res.json({
+                success: false,
+                message: 'User account not found'
+            });
+        }
+
+        // Check if user status is inactive
+        if (user.status === 'inactive') {
+            return res.json({
+                success: false,
+                message: 'Your account has been disabled. Please contact support.'
+            });
+        }
+
+        // Generate session
+        const sessionId = uuidv4();
+        const token = generateToken(
+            {
+                id: user.id,
+                username: user.username || mobile,
+                role: 'vessel_owner'
+            },
+            sessionId
+        );
+
+        // Store session
+        if (!IS_SERVERLESS) {
+            if (!activeSessions.has(user.id)) {
+                activeSessions.set(user.id, new Map());
+            }
+            activeSessions.get(user.id).set(sessionId, {
+                createdAt: new Date(),
+                userAgent: req.headers['user-agent'],
+                ip: req.ip
+            });
+        }
+
+        console.log('[Vessel Owner Verify OTP] Login successful for:', mobile);
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            token: token,
+            sessionId: sessionId,
+            user: {
+                id: user.id,
+                userId: user.id,
+                username: user.username,
+                mobile: mobile,
+                role: 'vessel_owner',
+                fullName: user.full_name,
+                vesselId: user.vessel_id,
+                vesselName: user.vessel_name
+            }
+        });
+    } catch (error) {
+        console.error('[Vessel Owner Verify OTP] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error verifying OTP: ' + error.message
+        });
+    }
+});
+
 // Vessel Owner Login - for approved vessel owners only
 app.post('/api/auth/vessel-owner/login', async (req, res) => {
     const { username, password } = req.body;
@@ -1374,8 +1589,8 @@ app.post('/api/auth/vessel-owner/register', async (req, res) => {
             return res.json({ success: false, message: 'A registration request with this phone number or username is already pending.' });
         }
         
-        // Store password (matching existing pattern - in production, use proper hashing)
-        const storedPassword = credentials.password;
+        // Hash password using crypto (simple approach - use bcrypt in production)
+        const passwordHash = crypto.createHash('sha256').update(credentials.password).digest('hex');
         
         // Create pending registration - use columns that exist in the table
         const registrationData = {
@@ -1385,7 +1600,7 @@ app.post('/api/auth/vessel-owner/register', async (req, res) => {
             contact_info: owner.phone,
             email: owner.email || null,
             username: credentials.username,
-            password_hash: storedPassword, // Store password (use bcrypt in production)
+            password_hash: passwordHash, // Store hashed password
             status: 'pending',
             registration_data: {
                 owner: {

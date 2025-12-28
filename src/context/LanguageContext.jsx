@@ -196,6 +196,28 @@ const translations = {
     createProfile: 'Create Profile',
     registrationError: 'Registration failed',
     networkError: 'Network error during registration. Please check console.',
+    
+    // Vessel Owner Registration - New Keys Only
+    vesselOwnerRegistration: 'Vessel Owner Registration',
+    registerVesselAndAccount: 'Register your vessel and create your account',
+    ownerDetails: 'Owner Details',
+    accountCredentials: 'Account Credentials',
+    tenDigitMobile: '10 digit mobile number',
+    emailOptional: 'Email (Optional)',
+    aadhaarNumber: 'Aadhaar Number',
+    panNumber: 'PAN Number',
+    imnNumber: 'IMN Number',
+    usernamePlaceholder: 'Choose a username (min 4 characters)',
+    passwordPlaceholder: 'Min 6 characters, 1 uppercase, 1 number',
+    confirmPasswordPlaceholder: 'Re-enter password',
+    submitRegistration: 'Submit Registration',
+    submitting: 'Submitting',
+    agreeToTerms: 'I agree to the Terms & Conditions',
+    noteLabel: 'Note',
+    registrationNote: 'Your registration will be reviewed by an administrator. You will be notified once your account is approved.',
+    enterVesselName: 'Please enter vessel name',
+    enterRegistrationNumber: 'Please enter vessel registration number',
+    selectHomePort: 'Please select home port',
   },
   
   ta: {
@@ -392,6 +414,28 @@ const translations = {
     createProfile: 'சுயவிவரம் உருவாக்கு',
     registrationError: 'பதிவு தோல்வியுற்றது',
     networkError: 'பதிவின் போது நெட்வொர்க் பிழை. தயவுசெய்து கன்சோல் சரிபார்க்கவும்.',
+    
+    // Vessel Owner Registration - New Keys Only
+    vesselOwnerRegistration: 'படகு உரிமையாளர் பதிவு',
+    registerVesselAndAccount: 'உங்கள் படகைப் பதிவு செய்து உங்கள் கணக்கை உருவாக்கவும்',
+    ownerDetails: 'உரிமையாளர் விவரங்கள்',
+    accountCredentials: 'கணக்கு நம்பிக்கை',
+    tenDigitMobile: '10 இலக்க மொபைல் எண்',
+    emailOptional: 'ஈமெயில் (விருப்பமாக)',
+    aadhaarNumber: 'ஆதார் எண்',
+    panNumber: 'PAN எண்',
+    imnNumber: 'IMN எண்',
+    usernamePlaceholder: 'பயனர் பெயர் தேர்ந்தெடுக்கவும் (குறைந்தது 4 எழுத்து)',
+    passwordPlaceholder: 'குறைந்தது 6 எழுத்து, 1 பெரிய எழுத்து, 1 எண்',
+    confirmPasswordPlaceholder: 'கடவுச்சொல்லை மீண்டும் உள்ளிடவும்',
+    submitRegistration: 'பதிவை சமர்ப்பி',
+    submitting: 'சமர்ப்பிக்கிறது',
+    agreeToTerms: 'நான் விதிமுறைகள் மற்றும் நிபந்தனைகளுக்கு ஒப்புக்கொள்கிறேன்',
+    noteLabel: 'குறிப்பு',
+    registrationNote: 'உங்கள் பதிவு நிர்வாகி மூலம் மீதிபாக்கம் செய்யப்படும். உங்கள் கணக்கு அங்கீகாரம் கிடைக்கும் போது உங்களுக்கு அறிவிக்கப்படும்.',
+    enterVesselName: 'தயவுசெய்து படகு பெயர் உள்ளிடவும்',
+    enterRegistrationNumber: 'தயவுசெய்து பதிவு எண் உள்ளிடவும்',
+    selectHomePort: 'தயவுசெய்து வீட்டு துறைமுகம் தேர்ந்தெடுக்கவும்',
   }
 };
 

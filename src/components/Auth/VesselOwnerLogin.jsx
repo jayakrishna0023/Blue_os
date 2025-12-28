@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
-import { Lock, User, AlertCircle, Anchor, ArrowLeft, Ship, RefreshCw, Users } from 'lucide-react';
+import { Lock, User, AlertCircle, Anchor, ArrowLeft, Ship, RefreshCw, Users, Phone } from 'lucide-react';
 import { useToast } from '../Shared/Toast';
 import { useLanguage } from '../../context/LanguageContext';
 import LanguageToggle from '../Shared/LanguageToggle';
@@ -11,8 +11,9 @@ const VesselOwnerLogin = () => {
   const toast = useToast();
   const navigate = useNavigate();
   
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOtp, setShowOtp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -21,25 +22,61 @@ const VesselOwnerLogin = () => {
     window.location.reload();
   };
 
-  const handleLogin = async (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
+    
+    if (mobile.length < 10) {
+      setError('Please enter a valid mobile number (10 digits)');
+      return;
+    }
+    
     setError('');
     setLoading(true);
 
     try {
-      console.log('Attempting Vessel Owner Login:', username);
-      const response = await authAPI.vesselOwnerLogin(username, password);
-      console.log('Vessel Owner Login Response:', response);
+      console.log('Sending OTP for Vessel Owner:', mobile);
+      const response = await authAPI.vesselOwnerSendOtp(mobile);
+      console.log('Send OTP Response:', response);
+
+      if (response.success) {
+        setShowOtp(true);
+        toast.info('OTP sent to your mobile number', 'Code: 1234 (Test)');
+      } else {
+        setError(response.message || 'Failed to send OTP');
+      }
+    } catch (err) {
+      console.error('Send OTP Error:', err);
+      setError('Failed to send OTP. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    
+    if (otp.length < 4) {
+      setError('Please enter a valid OTP');
+      return;
+    }
+    
+    setError('');
+    setLoading(true);
+
+    try {
+      console.log('Verifying OTP for Vessel Owner:', mobile);
+      const response = await authAPI.vesselOwnerVerifyOtp(mobile, otp);
+      console.log('Verify OTP Response:', response);
 
       if (response.success && response.user) {
         toast.success('Welcome back!', 'Login Successful');
         navigate('/vessel-owner');
       } else {
-        setError(response.message || 'Invalid credentials');
+        setError(response.message || 'Invalid OTP. Please try again.');
       }
     } catch (err) {
-      console.error('Login Error:', err);
-      setError('Login failed. Please check your connection.');
+      console.error('Verify OTP Error:', err);
+      setError('Verification failed. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -94,43 +131,46 @@ const VesselOwnerLogin = () => {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+          <form onSubmit={showOtp ? handleVerifyOtp : handleSendOtp} className="space-y-4 sm:space-y-6">
             <div className="space-y-1.5 sm:space-y-2">
-              <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('username')}</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('mobileNumberLabel')}</label>
               <div className="relative group">
-                <User className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                <Phone className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="tel"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all placeholder-slate-600"
-                  placeholder={t('enterUsername')}
+                  placeholder={t('enterMobileNumber')}
                   required
+                  disabled={showOtp}
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5 sm:space-y-2">
-              <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('password')}</label>
-              <div className="relative group">
-                <Lock className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all placeholder-slate-600"
-                  placeholder={t('enterPassword')}
-                  required
-                />
+            {showOtp && (
+              <div className="space-y-1.5 sm:space-y-2 animate-fade-in">
+                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('otpLabel')}</label>
+                <div className="relative group">
+                  <Lock className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all placeholder-slate-600"
+                    placeholder={t('enterOtpPlaceholder')}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold py-3.5 sm:py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base touch-target"
             >
-              {loading ? t('signingIn') : t('signIn')}
+              {loading ? t('processing') : (showOtp ? t('loginButton') : t('sendOtp'))}
             </button>
           </form>
 
@@ -152,7 +192,7 @@ const VesselOwnerLogin = () => {
           {/* Pending Registration Info */}
           <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
             <p className="text-amber-400 text-xs text-center">
-              ⏳ Already registered? Please wait for admin approval before logging in.
+              ⏳ {t('alreadyRegistered')}
             </p>
           </div>
         </div>

@@ -199,6 +199,27 @@ export const authAPI = {
       console.error('Vessel Owner Login Error:', error);
       throw error;
     }
+  },
+  vesselOwnerSendOtp: async (mobile) => {
+    try {
+      const response = await api.post('/auth/vessel-owner/send-otp', { mobile });
+      return response.data;
+    } catch (error) {
+      console.error('Send OTP Error:', error);
+      throw error;
+    }
+  },
+  vesselOwnerVerifyOtp: async (mobile, otp) => {
+    try {
+      const response = await api.post('/auth/vessel-owner/verify-otp', { mobile, otp });
+      if (response.data.success && response.data.user) {
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Verify OTP Error:', error);
+      throw error;
+    }
   }
 };
 

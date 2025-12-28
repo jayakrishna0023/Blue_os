@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Ship, User, Phone, Mail, MapPin, FileText, ArrowLeft, Anchor, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { authAPI } from '../../services/api';
 import { useToast } from '../Shared/Toast';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 import { PORTS } from '../../services/faoConstants';
 
 const VesselOwnerRegistration = () => {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const toast = useToast();
   const [step, setStep] = useState(1);
@@ -39,7 +42,8 @@ const VesselOwnerRegistration = () => {
   const [credentials, setCredentials] = useState({
     username: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    agreeTerms: false
   });
 
   const handleOwnerChange = (e) => {
@@ -51,16 +55,20 @@ const VesselOwnerRegistration = () => {
   };
 
   const handleCredentialsChange = (e) => {
-    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    setCredentials({ 
+      ...credentials, 
+      [name]: type === 'checkbox' ? checked : value
+    });
   };
 
   const validateStep1 = () => {
     if (!ownerData.name.trim()) {
-      setError('Please enter your name');
+      setError(t('enterFullName'));
       return false;
     }
     if (!ownerData.phone.trim() || ownerData.phone.length < 10) {
-      setError('Please enter a valid phone number');
+      setError(t('enterValidPhone'));
       return false;
     }
     setError('');
@@ -69,15 +77,15 @@ const VesselOwnerRegistration = () => {
 
   const validateStep2 = () => {
     if (!vesselData.vesselName.trim()) {
-      setError('Please enter vessel name');
+      setError(t('enterVesselName') || 'Please enter vessel name');
       return false;
     }
     if (!vesselData.registrationNumber.trim()) {
-      setError('Please enter vessel registration number');
+      setError(t('enterRegistrationNumber') || 'Please enter vessel registration number');
       return false;
     }
     if (!vesselData.homePort.trim()) {
-      setError('Please select home port');
+      setError(t('selectHomePort') || 'Please select home port');
       return false;
     }
     setError('');
@@ -85,16 +93,28 @@ const VesselOwnerRegistration = () => {
   };
 
   const validateStep3 = () => {
-    if (!credentials.username.trim() || credentials.username.length < 4) {
-      setError('Username must be at least 4 characters');
+    if (!credentials.username || !credentials.username.trim()) {
+      setError(t('usernameMustBe'));
       return false;
     }
-    if (!credentials.password.trim() || credentials.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (credentials.username.trim().length < 4) {
+      setError(t('usernameMustBe'));
       return false;
     }
-    if (credentials.password !== credentials.confirmPassword) {
-      setError('Passwords do not match');
+    if (!credentials.password || !credentials.password.trim()) {
+      setError(t('passwordMustBe'));
+      return false;
+    }
+    if (credentials.password.trim().length < 6) {
+      setError(t('passwordMustBe'));
+      return false;
+    }
+    if (!credentials.confirmPassword || credentials.password !== credentials.confirmPassword) {
+      setError(t('passwordsDoNotMatch'));
+      return false;
+    }
+    if (!credentials.agreeTerms) {
+      setError(t('agreeToTerms'));
       return false;
     }
     setError('');
@@ -154,8 +174,9 @@ const VesselOwnerRegistration = () => {
             className="flex items-center text-slate-400 hover:text-white transition-colors group"
           >
             <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-            Back to Login
+            {t('back')}
           </button>
+          <LanguageToggle className="!bg-slate-800 !border-slate-700" />
         </div>
 
         {/* Title */}
@@ -163,8 +184,8 @@ const VesselOwnerRegistration = () => {
           <div className="inline-flex items-center justify-center p-4 bg-blue-600/20 rounded-2xl mb-6 border border-blue-500/30">
             <Ship className="w-10 h-10 text-blue-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Vessel Owner Registration</h1>
-          <p className="text-slate-400">Register your vessel and create your account</p>
+          <h1 className="text-3xl font-bold text-white mb-2">{t('vesselOwnerRegistration')}</h1>
+          <p className="text-slate-400">{t('registerVesselAndAccount')}</p>
         </div>
 
         {/* Progress Steps */}
@@ -198,38 +219,38 @@ const VesselOwnerRegistration = () => {
             <div className="space-y-6 animate-fade-in">
               <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
                 <User className="w-5 h-5 text-blue-400" />
-                Owner Details
+                {t('ownerDetails')}
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Full Name *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('fullName')} *</label>
                   <input
                     type="text"
                     name="name"
                     value={ownerData.name}
                     onChange={handleOwnerChange}
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    placeholder="Enter your full name"
+                    placeholder={t('enterFullName')}
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Phone Number *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('phoneNumber')} *</label>
                   <input
                     type="tel"
                     name="phone"
                     value={ownerData.phone}
                     onChange={handleOwnerChange}
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    placeholder="10 digit mobile number"
+                    placeholder={t('tenDigitMobile')}
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Email (Optional)</label>
+                  <label className="text-sm font-medium text-slate-400">{t('emailOptional')}</label>
                   <input
                     type="email"
                     name="email"
@@ -241,7 +262,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Aadhaar Number</label>
+                  <label className="text-sm font-medium text-slate-400">{t('aadhaarNumber')}</label>
                   <input
                     type="text"
                     name="aadhaarNumber"
@@ -273,12 +294,12 @@ const VesselOwnerRegistration = () => {
             <div className="space-y-6 animate-fade-in">
               <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
                 <Anchor className="w-5 h-5 text-blue-400" />
-                Vessel Details
+                {t('vesselDetails')}
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Vessel Name *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('vesselName')} *</label>
                   <input
                     type="text"
                     name="vesselName"
@@ -291,7 +312,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Registration Number *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('registrationNumber')} *</label>
                   <input
                     type="text"
                     name="registrationNumber"
@@ -304,7 +325,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">IMN Number</label>
+                  <label className="text-sm font-medium text-slate-400">{t('imnNumber')}</label>
                   <input
                     type="text"
                     name="imnNumber"
@@ -316,7 +337,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Vessel Type *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('vesselType')} *</label>
                   <select
                     name="vesselType"
                     value={vesselData.vesselType}
@@ -334,7 +355,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Home Port *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('homePort')} *</label>
                   <select
                     name="homePort"
                     value={vesselData.homePort}
@@ -342,7 +363,7 @@ const VesselOwnerRegistration = () => {
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     required
                   >
-                    <option value="">Select Port</option>
+                    <option value="">{t('selectHomePort')}</option>
                     {PORTS.map(port => (
                       <option key={port.code} value={port.name}>{port.name}</option>
                     ))}
@@ -374,7 +395,7 @@ const VesselOwnerRegistration = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Build Year</label>
+                  <label className="text-sm font-medium text-slate-400">{t('buildYear')}</label>
                   <input
                     type="number"
                     name="buildYear"
@@ -395,38 +416,38 @@ const VesselOwnerRegistration = () => {
             <div className="space-y-6 animate-fade-in">
               <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
                 <FileText className="w-5 h-5 text-blue-400" />
-                Create Account
+                {t('accountCredentials')}
               </h2>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Username *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('username')} *</label>
                   <input
                     type="text"
                     name="username"
                     value={credentials.username}
                     onChange={handleCredentialsChange}
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    placeholder="Choose a username (min 4 characters)"
+                    placeholder={t('usernamePlaceholder')}
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Password *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('password')} *</label>
                   <input
                     type="password"
                     name="password"
                     value={credentials.password}
                     onChange={handleCredentialsChange}
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    placeholder="Choose a password (min 6 characters)"
+                    placeholder={t('passwordPlaceholder')}
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Confirm Password *</label>
+                  <label className="text-sm font-medium text-slate-400">{t('confirmPassword')} *</label>
                   <input
                     type="password"
                     name="confirmPassword"
@@ -437,12 +458,26 @@ const VesselOwnerRegistration = () => {
                     required
                   />
                 </div>
+                
+                <div className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg border border-slate-800 mt-4">
+                  <input
+                    type="checkbox"
+                    name="agreeTerms"
+                    id="agreeTerms"
+                    checked={credentials.agreeTerms}
+                    onChange={handleCredentialsChange}
+                    className="w-4 h-4 rounded"
+                    required
+                  />
+                  <label htmlFor="agreeTerms" className="text-sm text-slate-300">
+                    {t('agreeToTerms')}
+                  </label>
+                </div>
               </div>
               
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mt-6">
                 <p className="text-blue-400 text-sm">
-                  <strong>Note:</strong> Your registration will be reviewed by an administrator. 
-                  You will be notified once your account is approved.
+                  <strong>{t('noteLabel')}:</strong> {t('registrationNote')}
                 </p>
               </div>
             </div>
@@ -455,7 +490,7 @@ const VesselOwnerRegistration = () => {
                 onClick={() => setStep(step - 1)}
                 className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"
               >
-                Previous
+                {t('previous')}
               </button>
             ) : (
               <div></div>
@@ -466,7 +501,7 @@ const VesselOwnerRegistration = () => {
                 onClick={handleNext}
                 className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors font-medium"
               >
-                Next
+                {t('next')}
               </button>
             ) : (
               <button
@@ -477,12 +512,12 @@ const VesselOwnerRegistration = () => {
                 {loading ? (
                   <>
                     <Loader className="w-5 h-5 animate-spin" />
-                    Submitting...
+                    {t('submitting')}...
                   </>
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    Submit Registration
+                    {t('submitRegistration')}
                   </>
                 )}
               </button>
