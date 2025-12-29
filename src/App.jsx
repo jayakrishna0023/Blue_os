@@ -1,23 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastProvider } from './components/Shared/Toast';
-import { LanguageProvider } from './context/LanguageContext';
-import LandingPage from './components/LandingPage';
-import Login from './components/Auth/Login';
-import VesselOwnerLogin from './components/Auth/VesselOwnerLogin';
-import VesselOwnerRegistration from './components/Auth/VesselOwnerRegistration';
-import CaptainDashboard from './components/Captain/CaptainDashboard';
-import WorkerDashboard from './components/Worker/WorkerDashboard';
-import AdminDashboard from './components/Admin/AdminDashboard';
-import InspectorDashboard from './components/Inspector/InspectorDashboard';
-import FisherDashboard from './components/Fisher/FisherDashboard';
-import Traceability from './components/Public/Traceability';
-import PublicTraceability from './components/Public/PublicTraceability';
-import VesselRegistry from './components/Public/VesselRegistry';
-import About from './components/Public/About';
-import QRGenerator from './components/Admin/QRGenerator';
-import { getCurrentUser, isAuthenticated } from './services/utils';
-import { authAPI } from './services/api';
+
+// Shared Components
+import { ToastProvider } from './modules/shared/components/Shared/Toast';
+import { LanguageProvider } from './modules/shared/context/LanguageContext';
+
+// Auth Components
+import Login from './modules/shared/components/Auth/Login';
+import VesselOwnerLogin from './modules/shared/components/Auth/VesselOwnerLogin';
+import VesselOwnerRegistration from './modules/shared/components/Auth/VesselOwnerRegistration';
+
+// Wild Fishery Components
+import LandingPage from './modules/wild-fishery/components/LandingPage';
+import CaptainDashboard from './modules/wild-fishery/components/Captain/CaptainDashboard';
+import WorkerDashboard from './modules/wild-fishery/components/Worker/WorkerDashboard';
+import AdminDashboard from './modules/wild-fishery/components/Admin/AdminDashboard';
+import InspectorDashboard from './modules/wild-fishery/components/Inspector/InspectorDashboard';
+import FisherDashboard from './modules/wild-fishery/components/Fisher/FisherDashboard';
+import QRGenerator from './modules/wild-fishery/components/Admin/QRGenerator';
+
+// Public Components
+import Traceability from './modules/shared/components/Public/Traceability';
+import PublicTraceability from './modules/shared/components/Public/PublicTraceability';
+import VesselRegistry from './modules/shared/components/Public/VesselRegistry';
+import About from './modules/shared/components/Public/About';
+
+// Services
+import { getCurrentUser, isAuthenticated } from './modules/shared/services/utils';
+import { authAPI } from './modules/shared/services/api';
 
 // Protected Route Component with session validation
 const ProtectedRoute = ({ children, allowedRoles }) => {
