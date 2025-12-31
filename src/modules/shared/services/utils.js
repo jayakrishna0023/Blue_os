@@ -38,7 +38,7 @@ export const getCurrentUser = () => {
   
   // 2. Try Legacy LocalStorage (backwards compatibility)
   try {
-    const localUser = sessionStorage.getItem('user');
+    const localUser = localStorage.getItem('user');
     if (localUser) return JSON.parse(localUser);
   } catch (e) {
     // Ignore
@@ -63,13 +63,19 @@ export const getCurrentUser = () => {
 // Check if user is authenticated
 export const isAuthenticated = () => {
   const session = getCurrentSession();
-  return session?.token != null;
+  if (session?.token) return true;
+  
+  // Check localStorage
+  return !!localStorage.getItem('token');
 };
 
 // Get current auth token
 export const getAuthToken = () => {
   const session = getCurrentSession();
-  return session?.token || null;
+  if (session?.token) return session.token;
+  
+  // Check localStorage
+  return localStorage.getItem('token');
 };
 
 export const generateTripCode = async () => {

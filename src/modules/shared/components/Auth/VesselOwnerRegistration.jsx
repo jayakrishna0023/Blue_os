@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ship, User, Phone, Mail, MapPin, FileText, ArrowLeft, Anchor, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import { authAPI } from '../../../shared/services/api';
-import { useToast } from '../../../shared/components/Shared/Toast';
-import { useLanguage } from '../../../shared/context/LanguageContext';
-import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
-import { PORTS } from '../../../shared/services/faoConstants';
+import { authAPI } from '../../services/api';
+import { useToast } from '../Shared/Toast';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
+import { PORTS } from '../../services/faoConstants';
 
 const VesselOwnerRegistration = () => {
   const { t } = useLanguage();

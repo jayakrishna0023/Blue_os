@@ -19,19 +19,19 @@ const WORLDS = [
   {
     id: 'aquaculture',
     title: 'Aquaculture',
-    description: 'Monitor water quality, feed management, and growth tracking for inland fish farming.',
+    description: 'Monitor water quality, pond management, and growth tracking for inland fish farming.',
     icon: <Fish className="w-12 h-12 text-emerald-400" />,
     path: '/aquaculture',
-    active: false,
+    active: true,
     color: 'emerald'
   },
   {
     id: 'mariculture',
     title: 'Mariculture',
-    description: 'Offshore cultivation management, cage monitoring, and marine ecosystem tracking.',
+    description: 'Offshore seaweed/shellfish cultivation, farm monitoring, and marine ecosystem tracking.',
     icon: <Anchor className="w-12 h-12 text-cyan-400" />,
     path: '/mariculture',
-    active: false,
+    active: true,
     color: 'cyan'
   }
 ];
@@ -317,13 +317,13 @@ const LandingPage = () => {
       <section id="world-selection" className="relative z-10 py-32 px-6 bg-slate-900/80 border-y border-slate-800 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Select Origin</h2>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Select Your Module</h2>
             <p className="text-slate-400 max-w-2xl mx-auto text-lg">
               Access specific workflows tailored to your operational environment.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             {WORLDS.map((world) => (
               <WorldCard 
                 key={world.id} 
@@ -331,6 +331,92 @@ const LandingPage = () => {
                 onSelect={handleSelectWorld} 
               />
             ))}
+          </div>
+
+          {/* Demo Credentials Info */}
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-blue-600/20 rounded-lg">
+                <Shield className="w-6 h-6 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Demo Login Credentials</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Wild Fishery */}
+              <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Ship className="w-5 h-5 text-blue-400" />
+                  <h4 className="font-bold text-white">Wild Fishery</h4>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Admin:</span>
+                    <code className="text-blue-400">admin / admin123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Captain:</span>
+                    <code className="text-blue-400">captain / captain123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Worker:</span>
+                    <code className="text-blue-400">worker / worker123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Inspector:</span>
+                    <code className="text-blue-400">inspector / inspector123</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Aquaculture */}
+              <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Fish className="w-5 h-5 text-emerald-400" />
+                  <h4 className="font-bold text-white">Aquaculture</h4>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Farmer:</span>
+                    <code className="text-emerald-400">afarmer / farmer123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Inspector:</span>
+                    <code className="text-emerald-400">ainspector / inspector123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Packer:</span>
+                    <code className="text-emerald-400">apacker / packer123</code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mariculture */}
+              <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Anchor className="w-5 h-5 text-cyan-400" />
+                  <h4 className="font-bold text-white">Mariculture</h4>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Farmer:</span>
+                    <code className="text-cyan-400">mfarmer / farmer123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Inspector:</span>
+                    <code className="text-cyan-400">minspector / inspector123</code>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span className="font-medium">Packer:</span>
+                    <code className="text-cyan-400">mpacker / packer123</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-center text-slate-500 text-sm mt-6">
+              ⚠️ These are demo credentials for testing only. Use them to explore each module.
+            </p>
           </div>
         </div>
       </section>

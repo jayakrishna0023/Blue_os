@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../../../shared/services/api';
+import { authAPI } from '../../services/api';
 import { User, Phone, MapPin, Home, Heart, AlertCircle, Save } from 'lucide-react';
-import { useLanguage } from '../../../shared/context/LanguageContext';
-import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 
 const FisherRegistration = ({ mobile, onComplete }) => {
   const { t } = useLanguage();

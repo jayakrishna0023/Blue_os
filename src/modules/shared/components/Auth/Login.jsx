@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../../../shared/services/api';
+import { authAPI } from '../../services/api';
 import { Fish, Lock, User, AlertCircle, Anchor, ArrowLeft, Waves, Phone, Ship, RefreshCw, Users, Briefcase } from 'lucide-react';
 import FisherRegistration from './FisherRegistration';
-import { useToast } from '../../../shared/components/Shared/Toast';
-import { useLanguage } from '../../../shared/context/LanguageContext';
-import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
+import { useToast } from '../Shared/Toast';
 
 const Login = () => {
-  const { t } = useLanguage();
   const toast = useToast();
   const [loginType, setLoginType] = useState('staff'); // 'staff' or 'fisher'
   const [mobile, setMobile] = useState('');
@@ -139,27 +136,25 @@ const Login = () => {
             className="flex items-center text-slate-400 hover:text-white transition-colors group"
             >
             <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-            {t('back')}
+            Back to Home
             </button>
 
-            <div className="flex items-center gap-2">
-              <LanguageToggle />
-              <button 
-              onClick={handleClearSession}
-              className="flex items-center text-xs text-slate-500 hover:text-red-400 transition-colors"
-              title={t('clearSessionData')}
-              >
-              <RefreshCw className="w-3 h-3" />
-              </button>
-            </div>
+            <button 
+            onClick={handleClearSession}
+            className="flex items-center text-xs text-slate-500 hover:text-red-400 transition-colors"
+            title="Clear Session Data"
+            >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Reset
+            </button>
         </div>
 
         <div className="text-center mb-6 sm:mb-8 animate-fade-in">
           <div className="inline-flex items-center justify-center p-3 sm:p-4 bg-blue-600/20 rounded-xl sm:rounded-2xl mb-4 sm:mb-6 border border-blue-500/30 backdrop-blur-md shadow-lg shadow-blue-500/20">
             <Anchor className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
           </div>
-          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 tracking-tight">{t('wildFishery')}</h1>
-          <p className="text-slate-400 text-sm sm:text-lg">{t('login')}</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2 tracking-tight">Wild Fishery</h1>
+          <p className="text-slate-400 text-sm sm:text-lg">Login to your account</p>
         </div>
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl animate-slide-up">
@@ -171,21 +166,21 @@ const Login = () => {
               className={`flex-1 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-target ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
             >
               <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              {t('staffLogin')}
+              Staff Login
             </button>
             <button
               onClick={() => { setLoginType('fisher'); setError(''); }}
               className={`flex-1 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-target ${loginType === 'fisher' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
             >
               <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              {t('fisher')}
+              Fisher
             </button>
           </div>
 
           {/* Helper text for Staff login */}
           {loginType === 'staff' && (
             <p className="text-slate-500 text-xs text-center mb-4 -mt-4">
-              {t('forAdminCaptain')}
+              For Admin, Captain, Worker & Inspector
             </p>
           )}
 
@@ -199,7 +194,7 @@ const Login = () => {
           {loginType === 'fisher' ? (
             <form onSubmit={showOtp ? handleFisherLogin : handleSendOtp} className="space-y-4 sm:space-y-6">
               <div className="space-y-1.5 sm:space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('mobileNumberLabel')}</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">Mobile Number</label>
                 <div className="relative group">
                   <Phone className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                   <input
@@ -207,7 +202,7 @@ const Login = () => {
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600"
-                    placeholder={t('enterMobileNumber')}
+                    placeholder="Enter mobile number"
                     required
                     disabled={showOtp}
                   />
@@ -216,7 +211,7 @@ const Login = () => {
 
               {showOtp && (
                 <div className="space-y-1.5 sm:space-y-2 animate-fade-in">
-                  <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('otpLabel')}</label>
+                  <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">OTP</label>
                   <div className="relative group">
                     <Lock className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                     <input
@@ -224,7 +219,7 @@ const Login = () => {
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600"
-                      placeholder={t('enterOtpPlaceholder')}
+                      placeholder="Enter OTP (1234)"
                       required
                     />
                   </div>
@@ -236,13 +231,13 @@ const Login = () => {
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3.5 sm:py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base touch-target"
               >
-                {loading ? t('processing') : (showOtp ? t('loginButton') : t('sendOtp'))}
+                {loading ? 'Processing...' : (showOtp ? 'Login' : 'Send OTP')}
               </button>
             </form>
           ) : (
             <form onSubmit={handleStaffLogin} className="space-y-4 sm:space-y-6">
               <div className="space-y-1.5 sm:space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('username')}</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">Username</label>
                 <div className="relative group">
                   <User className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                   <input
@@ -250,14 +245,14 @@ const Login = () => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600"
-                    placeholder={t('enterUsername')}
+                    placeholder="Enter username"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5 sm:space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">{t('password')}</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-400 ml-1">Password</label>
                 <div className="relative group">
                   <Lock className="absolute left-3 sm:left-4 top-3 sm:top-3.5 w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                   <input
@@ -265,7 +260,7 @@ const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 text-white text-base px-10 sm:px-12 py-3 sm:py-3.5 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-600"
-                    placeholder={t('enterPassword')}
+                    placeholder="Enter password"
                     required
                   />
                 </div>
@@ -276,7 +271,7 @@ const Login = () => {
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3.5 sm:py-4 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base touch-target"
               >
-                {loading ? t('signingIn') : t('signIn')}
+                {loading ? 'Signing In...' : 'Sign In'}
               </button>
               
             </form>
@@ -288,7 +283,7 @@ const Login = () => {
               <div className="w-full border-t border-slate-700"></div>
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-3 bg-slate-900/50 text-slate-500">{t('vesselOwnerQuestion')}</span>
+              <span className="px-3 bg-slate-900/50 text-slate-500">Vessel Owner?</span>
             </div>
           </div>
 
@@ -300,7 +295,7 @@ const Login = () => {
               className="flex-1 py-3 px-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-all text-sm font-medium flex items-center justify-center gap-2"
             >
               <Ship className="w-4 h-4" />
-              {t('login')}
+              Login
             </button>
             <button 
               type="button"
@@ -308,7 +303,7 @@ const Login = () => {
               className="flex-1 py-3 px-4 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all text-sm font-medium flex items-center justify-center gap-2"
             >
               <Users className="w-4 h-4" />
-              {t('register')}
+              Register
             </button>
           </div>
         </div>

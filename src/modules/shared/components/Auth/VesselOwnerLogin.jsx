@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../../../shared/services/api';
+import { authAPI } from '../../services/api';
 import { Lock, User, AlertCircle, Anchor, ArrowLeft, Ship, RefreshCw, Users, Phone } from 'lucide-react';
-import { useToast } from '../../../shared/components/Shared/Toast';
-import { useLanguage } from '../../../shared/context/LanguageContext';
-import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
+import { useToast } from '../Shared/Toast';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageToggle from '../Shared/LanguageToggle';
 
 const VesselOwnerLogin = () => {
   const { t } = useLanguage();
