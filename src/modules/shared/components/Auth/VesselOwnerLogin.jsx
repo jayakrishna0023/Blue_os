@@ -70,7 +70,7 @@ const VesselOwnerLogin = () => {
 
       if (response.success && response.user) {
         toast.success('Welcome back!', 'Login Successful');
-        navigate('/vessel-owner');
+        navigate('/wild-fishery/vessel-owner');
       } else {
         setError(response.message || 'Invalid OTP. Please try again.');
       }

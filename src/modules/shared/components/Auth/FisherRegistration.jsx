@@ -36,7 +36,7 @@ const FisherRegistration = ({ mobile, onComplete }) => {
       
       if (response.success) {
         if (onComplete) onComplete();
-        else navigate('/fisher');
+        else navigate('/wild-fishery/fisher');
       } else {
         setError(response.message || t('registrationError'));
       }

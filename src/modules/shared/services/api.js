@@ -189,10 +189,7 @@ export const authAPI = {
     try {
       const response = await api.post('/auth/vessel-owner/login', { username, password });
       if (response.data.success && response.data.user) {
-        sessionStorage.setItem('user', JSON.stringify(response.data.user));
-        if (response.data.token) {
-          sessionStorage.setItem('token', response.data.token);
-        }
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
       }
       return response.data;
     } catch (error) {
@@ -218,6 +215,19 @@ export const authAPI = {
       return response.data;
     } catch (error) {
       console.error('Verify OTP Error:', error);
+      throw error;
+    }
+  },
+  moduleLogin: async (username, password, module, role) => {
+    try {
+      const response = await api.post('/auth/module/login', { username, password, module, role });
+      console.log('Module Login API Response:', response.data);
+      if (response.data.success && response.data.user) {
+        saveSession(response.data.token, response.data.sessionId, response.data.user);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Module Login Error:', error);
       throw error;
     }
   }

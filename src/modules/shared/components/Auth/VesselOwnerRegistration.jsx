@@ -32,8 +32,10 @@ const VesselOwnerRegistration = () => {
     imnNumber: '',
     vesselType: 'trawler',
     length: '',
-    capacity: '',
+    storageCapacity: '',
+    crewCapacity: '',
     enginePower: '',
+    fuelType: 'Diesel',
     homePort: '',
     buildYear: ''
   });
@@ -392,6 +394,45 @@ const VesselOwnerRegistration = () => {
                     className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     placeholder="e.g., 150"
                   />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Storage Capacity (kg)</label>
+                  <input
+                    type="number"
+                    name="storageCapacity"
+                    value={vesselData.storageCapacity}
+                    onChange={handleVesselChange}
+                    className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    placeholder="e.g., 5000"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Crew Capacity</label>
+                  <input
+                    type="number"
+                    name="crewCapacity"
+                    value={vesselData.crewCapacity}
+                    onChange={handleVesselChange}
+                    className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    placeholder="e.g., 10"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Fuel Type</label>
+                  <select
+                    name="fuelType"
+                    value={vesselData.fuelType}
+                    onChange={handleVesselChange}
+                    className="w-full bg-slate-950 border border-slate-800 text-white px-4 py-3 rounded-xl focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  >
+                    <option value="Diesel">Diesel</option>
+                    <option value="Petrol">Petrol</option>
+                    <option value="Kerosene">Kerosene</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
                 </div>
                 
                 <div className="space-y-2">

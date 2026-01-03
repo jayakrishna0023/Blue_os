@@ -4,6 +4,7 @@ import { ArrowLeft, User, Lock, Droplets, Shell, Eye, EyeOff } from 'lucide-reac
 import { useLanguage } from '../../context/LanguageContext';
 import LanguageToggle from '../Shared/LanguageToggle';
 import Toast from '../Shared/Toast';
+import { authAPI } from '../../services/api';
 
 const ModuleLogin = () => {
   const navigate = useNavigate();
@@ -73,19 +74,40 @@ const ModuleLogin = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      // Call backend API for module login
+      const response = await authAPI.moduleLogin(credentials.username, credentials.password, module, role);
+      console.log('Module Login Response:', response);
 
-    // Check demo credentials
-    if (credentials.username === demoCreds.username && credentials.password === demoCreds.password) {
-      setToast({ message: 'Login successful!', type: 'success' });
-      
-      // Navigate to respective dashboard
-      setTimeout(() => {
-        navigate(`/${module}/${role}/dashboard`);
-      }, 500);
-    } else {
-      setToast({ message: 'Invalid credentials. Please try again.', type: 'error' });
+      if (response.success && response.user) {
+        setToast({ message: 'Login successful!', type: 'success' });
+        
+        // Navigate to respective dashboard
+        setTimeout(() => {
+          navigate(`/${module}/${role}/dashboard`);
+        }, 500);
+      } else {
+        setToast({ message: response.message || 'Invalid credentials. Please try again.', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Module Login Error:', error);
+      // Fallback to demo credentials for development
+      if (credentials.username === demoCreds.username && credentials.password === demoCreds.password) {
+        // Store user info for demo mode
+        const demoUser = {
+          id: `${module}_${role}_demo`,
+          username: credentials.username,
+          role: role,
+          module: module
+        };
+        sessionStorage.setItem('user', JSON.stringify(demoUser));
+        setToast({ message: 'Login successful! (Demo Mode)', type: 'success' });
+        setTimeout(() => {
+          navigate(`/${module}/${role}/dashboard`);
+        }, 500);
+      } else {
+        setToast({ message: 'Invalid credentials. Please try again.', type: 'error' });
+      }
     }
     
     setLoading(false);

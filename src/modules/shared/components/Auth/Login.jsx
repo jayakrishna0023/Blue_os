@@ -72,7 +72,7 @@ const Login = () => {
           setShowRegistration(true);
         } else {
           console.log('User exists, navigating to dashboard...');
-          navigate('/fisher');
+          navigate('/wild-fishery/fisher');
         }
       } else {
         setError(response.message || 'Login failed. Please try again.');
@@ -99,10 +99,10 @@ const Login = () => {
         const role = response.user.role;
         console.log('User Role:', role);
         
-        if (role === 'admin') navigate('/admin');
-        else if (role === 'captain') navigate('/captain');
-        else if (role === 'worker') navigate('/worker');
-        else if (role === 'inspector') navigate('/inspector');
+        if (role === 'admin') navigate('/wild-fishery/admin');
+        else if (role === 'captain') navigate('/wild-fishery/captain');
+        else if (role === 'worker') navigate('/wild-fishery/worker');
+        else if (role === 'inspector') navigate('/wild-fishery/inspector');
         else setError(`Unknown user role: ${role}. Use Vessel Owner login if you're a vessel owner.`);
       } else {
         setError(response.message || 'Invalid credentials');
@@ -116,7 +116,7 @@ const Login = () => {
   };
 
   if (showRegistration) {
-    return <FisherRegistration mobile={mobile} onComplete={() => navigate('/fisher')} />;
+    return <FisherRegistration mobile={mobile} onComplete={() => navigate('/wild-fishery/fisher')} />;
   }
 
   return (
