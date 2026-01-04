@@ -222,6 +222,12 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              
+              {/* Legacy QR Generator Route - Redirect to new path */}
+              <Route 
+                path="/qr-generator" 
+                element={<Navigate to="/wild-fishery/qr-generator" replace />} 
+              />
 
               {/* ========================================= */}
               {/* AQUACULTURE MODULE                       */}

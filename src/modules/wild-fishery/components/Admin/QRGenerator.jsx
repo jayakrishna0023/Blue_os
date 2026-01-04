@@ -72,7 +72,7 @@ const QRGenerator = () => {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8 no-print">
           <button 
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/wild-fishery/admin')}
             className="p-2 hover:bg-slate-200 rounded-full transition-colors touch-target"
           >
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" />

@@ -1346,6 +1346,103 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// ==================== MODULE LOGIN (Aquaculture/Mariculture) ====================
+app.post('/api/auth/module/login', async (req, res) => {
+    const { username, password, module, role } = req.body;
+    
+    console.log(`[Module Login] Attempt for ${module}/${role} with username: ${username}`);
+    
+    try {
+        // Hash password for comparison
+        const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+        
+        // Try to find user in database
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single();
+            
+        if (error && error.code !== 'PGRST116') {
+            console.error('[Module Login] Database error:', error);
+            throw error;
+        }
+        
+        // Check if user exists and password matches (support both plain and hashed)
+        if (user && (user.password === password || user.password === passwordHash)) {
+            // User found in database
+            const sessionId = uuidv4();
+            const token = generateToken(user, sessionId);
+            
+            console.log(`[Module Login] Success for ${username} - module: ${module}, role: ${role}`);
+            
+            return res.json({
+                success: true,
+                token: token,
+                sessionId: sessionId,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    role: role,
+                    module: module,
+                    full_name: user.full_name
+                }
+            });
+        }
+        
+        // Demo mode - check hardcoded demo credentials
+        const demoCredentials = {
+            aquaculture: {
+                farmer: { username: 'aqua_farmer', password: 'farmer123' },
+                inspector: { username: 'aqua_inspector', password: 'inspector123' },
+                packer: { username: 'aqua_packer', password: 'packer123' }
+            },
+            mariculture: {
+                farmer: { username: 'mari_farmer', password: 'farmer123' },
+                inspector: { username: 'mari_inspector', password: 'inspector123' },
+                packer: { username: 'mari_packer', password: 'packer123' }
+            }
+        };
+        
+        const demoCreds = demoCredentials[module]?.[role];
+        if (demoCreds && username === demoCreds.username && password === demoCreds.password) {
+            // Demo login success
+            const demoUser = {
+                id: `demo_${module}_${role}`,
+                username: username,
+                role: role,
+                module: module,
+                full_name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`
+            };
+            
+            const sessionId = uuidv4();
+            // Generate a simple token for demo user
+            const token = jwt.sign(
+                { userId: demoUser.id, role: role, module: module, sessionId },
+                process.env.JWT_SECRET || 'blueos_secret_key',
+                { expiresIn: '24h' }
+            );
+            
+            console.log(`[Module Login] Demo success for ${username}`);
+            
+            return res.json({
+                success: true,
+                token: token,
+                sessionId: sessionId,
+                user: demoUser
+            });
+        }
+        
+        // Login failed
+        console.log(`[Module Login] Failed for ${username}`);
+        return res.json({ success: false, message: 'Invalid credentials' });
+        
+    } catch (error) {
+        console.error('[Module Login] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Logout endpoint - invalidate session
 app.post('/api/auth/logout', (req, res) => {
     if (req.user && req.sessionId) {

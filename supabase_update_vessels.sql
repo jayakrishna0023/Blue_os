@@ -134,6 +134,25 @@ CREATE INDEX IF NOT EXISTS idx_vessels_registration ON vessels(registration_numb
 -- SELECT id, name, vessel_type, engine_power_hp, length_meters, storage_capacity, crew_capacity, fuel_type, home_port FROM vessels;
 -- SELECT id, username, full_name, phone, vessel_id, vessel_name FROM users WHERE vessel_id IS NOT NULL;
 
+-- ============================
+-- 8. CREATE DEFAULT ADMIN USER (if not exists)
+-- ============================
+
+-- Check if admin exists, if not create one
+INSERT INTO users (username, password, role, full_name)
+SELECT 'admin', 'admin123', 'admin', 'System Administrator'
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
+
+-- Create default inspector if not exists
+INSERT INTO users (username, password, role, full_name)
+SELECT 'inspector', 'inspector123', 'inspector', 'Default Inspector'
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'inspector');
+
+-- Create default worker if not exists
+INSERT INTO users (username, password, role, full_name)
+SELECT 'worker', 'worker123', 'worker', 'Default Worker'
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'worker');
+
 -- =========================================================
 -- SCRIPT COMPLETE
 -- After running this script, restart the backend server

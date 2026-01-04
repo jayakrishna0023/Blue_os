@@ -593,7 +593,7 @@ This is a system-generated document from BlueOS.
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Expenses</p>
-                  <p className="font-medium text-slate-300">Ôé¦{selectedTrip.total_expenses || '0'}</p>
+                  <p className="font-medium text-slate-300">ï¿½ï¿½{selectedTrip.total_expenses || '0'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 uppercase font-bold mb-1">Species Count</p>
@@ -662,7 +662,7 @@ This is a system-generated document from BlueOS.
                                   <MapPin className="w-3 h-3" />
                                   <span className="font-mono text-xs">
                                     {log.gps_lat && log.gps_lng 
-                                      ? `${Number(log.gps_lat).toFixed(6)}-¦, ${Number(log.gps_lng).toFixed(6)}-¦`
+                                      ? `${Number(log.gps_lat).toFixed(6)}-ï¿½, ${Number(log.gps_lng).toFixed(6)}-ï¿½`
                                       : log.location_name || 'Unknown'}
                                   </span>
                                 </div>
@@ -716,11 +716,11 @@ This is a system-generated document from BlueOS.
                           <p className="font-semibold text-white truncate">{member.name || 'Unknown Fisher'}</p>
                           <p className="text-xs text-blue-400 mt-0.5">ID: #{member.id || member.fisherId}</p>
                           <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                            ­ƒô× {member.mobile || 'No contact'}
+                            ï¿½ï¿½ï¿½ï¿½ {member.mobile || 'No contact'}
                           </p>
                           {member.homePort && member.homePort !== 'N/A' && (
                             <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                              ­ƒôì {member.homePort}
+                              ï¿½ï¿½ï¿½ï¿½ {member.homePort}
                             </p>
                           )}
                           {member.qrCode && (
@@ -1137,7 +1137,7 @@ This is a system-generated document from BlueOS.
 
         <div className="p-4 border-t border-slate-800">
           <button 
-            onClick={() => navigate('/qr-generator')}
+            onClick={() => navigate('/wild-fishery/qr-generator')}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-2"
           >
             <QrCode className="w-5 h-5" />
@@ -1187,7 +1187,7 @@ This is a system-generated document from BlueOS.
               <Database className="w-5 h-5" />
               <span className="text-[10px] font-medium">Registry</span>
             </button>
-            <button onClick={() => navigate('/qr-generator')} className="mobile-nav-item text-slate-400">
+            <button onClick={() => navigate('/wild-fishery/qr-generator')} className="mobile-nav-item text-slate-400">
               <QrCode className="w-5 h-5" />
               <span className="text-[10px] font-medium">QR</span>
             </button>
@@ -1458,7 +1458,7 @@ This is a system-generated document from BlueOS.
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-white font-medium">{trip.total_catch || 0} kg</span>
-                          <span className="text-xs text-slate-500">{trip.catch_count || 0} fish ÔÇó {trip.species_count || 0} species</span>
+                          <span className="text-xs text-slate-500">{trip.catch_count || 0} fish ï¿½ï¿½ï¿½ {trip.species_count || 0} species</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">

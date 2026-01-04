@@ -30,7 +30,7 @@ const TripDetails = () => {
 
   return (
     <div className="animate-fade-in">
-      <button onClick={() => navigate('/inspector')} className="flex items-center text-slate-500 hover:text-slate-800 mb-6 transition-colors">
+      <button onClick={() => navigate('/wild-fishery/inspector')} className="flex items-center text-slate-500 hover:text-slate-800 mb-6 transition-colors">
         <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
       </button>
       
@@ -51,7 +51,7 @@ const TripDetails = () => {
                     <th className="p-4 font-semibold">QR Code</th>
                     <th className="p-4 font-semibold">Weight (kg)</th>
                     <th className="p-4 font-semibold">Grade</th>
-                    <th className="p-4 font-semibold">Temp (-¦C)</th>
+                    <th className="p-4 font-semibold">Temp (-ï¿½C)</th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

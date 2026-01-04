@@ -192,7 +192,7 @@ const WorkerEntry = () => {
                 tripCode: log.trips?.trip_code,
                 date: new Date(log.created_at).toLocaleDateString(),
                 location: log.gps_lat && log.gps_lng 
-                  ? `${Number(log.gps_lat).toFixed(6)}-¦, ${Number(log.gps_lng).toFixed(6)}-¦`
+                  ? `${Number(log.gps_lat).toFixed(6)}-ï¿½, ${Number(log.gps_lng).toFixed(6)}-ï¿½`
                   : log.location_name || 'Unknown Location',
                 gps_lat: log.gps_lat,
                 gps_lng: log.gps_lng
@@ -277,7 +277,7 @@ const WorkerEntry = () => {
     <div className="max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
         <button 
-          onClick={() => navigate('/worker')}
+          onClick={() => navigate('/wild-fishery/worker')}
           className="flex items-center text-slate-500 hover:text-blue-600 transition-colors group"
         >
           <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 mr-2 sm:mr-3 group-hover:border-blue-200 shadow-sm">
