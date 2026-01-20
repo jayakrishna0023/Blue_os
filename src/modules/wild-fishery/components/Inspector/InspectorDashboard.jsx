@@ -98,10 +98,10 @@ const InspectorDashboard = () => {
       {/* Main Content */}
       <main className="flex-1 md:ml-64 p-4 md:p-8 pt-20 md:pt-8 pb-24 md:pb-8">
         <Routes>
-          <Route path="/" element={<InspectorHome />} />
-          <Route path="/entry" element={<QualityEntry />} />
-          <Route path="/trip/:tripId" element={<TripDetails />} />
-          <Route path="*" element={<Navigate to="/inspector" replace />} />
+          <Route index element={<InspectorHome />} />
+          <Route path="entry" element={<QualityEntry />} />
+          <Route path="trip/:tripId" element={<TripDetails />} />
+          <Route path="*" element={<Navigate to="/wild-fishery/inspector" replace />} />
         </Routes>
       </main>
     </div>
