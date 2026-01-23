@@ -4419,7 +4419,13 @@ app.post('/api/aquaculture/auth/login', async (req, res) => {
         const sessionId = uuidv4();
         const token = generateToken(user, sessionId);
         
-        console.log(`[AQUA LOGIN] Success for: ${username}`);
+        // Store session in activeSessions for local mode
+        if (!activeSessions.has(user.id)) {
+            activeSessions.set(user.id, new Set());
+        }
+        activeSessions.get(user.id).add(sessionId);
+        
+        console.log(`[AQUA LOGIN] Success for: ${username}, session: ${sessionId}`);
         
         res.json({
             success: true,
@@ -4890,6 +4896,17 @@ app.post('/api/aquaculture/farmer/harvests', verifyToken, async (req, res) => {
         const userId = req.user?.userId;
         const harvestData = req.body;
         
+        // Get the pond to find the farm_id
+        const { data: pond, error: pondError } = await supabase
+            .from('aqua_ponds')
+            .select('farm_id, doc, species')
+            .eq('id', harvestData.pond_id)
+            .single();
+        
+        if (pondError || !pond) {
+            return res.status(400).json({ success: false, message: 'Pond not found' });
+        }
+        
         // Generate harvest code and QR
         const harvestCode = `HARVEST-${Date.now().toString(36).toUpperCase()}`;
         const qrCode = `AQUA-H-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -4898,6 +4915,8 @@ app.post('/api/aquaculture/farmer/harvests', verifyToken, async (req, res) => {
             .from('aqua_harvests')
             .insert({
                 ...harvestData,
+                farm_id: pond.farm_id,
+                doc: pond.doc || 0,
                 harvest_code: harvestCode,
                 qr_code: qrCode,
                 status: 'pending_inspection',
@@ -5039,7 +5058,7 @@ app.get('/api/aquaculture/inspector/pending', verifyToken, async (req, res) => {
         
         if (error) throw error;
         
-        res.json({ success: true, harvests: harvests || [] });
+        res.json({ success: true, data: harvests || [] });
     } catch (error) {
         console.error('[AQUA GET PENDING INSPECTIONS] Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -5076,10 +5095,17 @@ app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => 
         const userId = req.user?.userId;
         const inspectionData = req.body;
         
+        console.log('[AQUA SUBMIT INSPECTION] Received data:', inspectionData);
+        
         // Generate inspection code
         const inspectionCode = `INSP-${Date.now().toString(36).toUpperCase()}`;
         
-        // Calculate overall score
+        // Map frontend field names to backend expectations
+        const isApproved = inspectionData.decision === 'approve' || inspectionData.is_approved === true;
+        const qualityGrade = inspectionData.grade || inspectionData.quality_grade;
+        const qualityScore = inspectionData.quality_score;
+        
+        // Calculate overall score from available scores
         const scores = [
             inspectionData.appearance_score,
             inspectionData.freshness_score,
@@ -5090,29 +5116,42 @@ app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => 
         
         const overallScore = scores.length > 0 
             ? scores.reduce((a, b) => a + b, 0) / scores.length 
-            : null;
+            : (qualityScore || inspectionData.freshness_score || null);
         
-        // Insert inspection
+        // Insert inspection record
         const { data: inspection, error } = await supabase
             .from('aqua_inspections')
             .insert({
-                ...inspectionData,
+                harvest_id: inspectionData.harvest_id,
                 inspection_code: inspectionCode,
                 inspector_id: userId,
-                overall_score: overallScore
+                is_approved: isApproved,
+                quality_grade: qualityGrade,
+                quality_score: qualityScore,
+                freshness_score: inspectionData.freshness_score,
+                water_temp_c: inspectionData.water_temp_c,
+                ph_level: inspectionData.ph_level,
+                dissolved_oxygen: inspectionData.dissolved_oxygen,
+                avg_weight_g: inspectionData.avg_weight_g,
+                overall_score: overallScore,
+                remarks: inspectionData.remarks,
+                inspection_date: new Date().toISOString()
             })
             .select()
             .single();
         
-        if (error) throw error;
+        if (error) {
+            console.error('[AQUA SUBMIT INSPECTION] Insert error:', error);
+            throw error;
+        }
         
         // Update harvest status
-        const newStatus = inspectionData.is_approved ? 'approved' : 'rejected';
-        await supabase
+        const newStatus = isApproved ? 'approved' : 'rejected';
+        const { error: updateError } = await supabase
             .from('aqua_harvests')
             .update({
                 status: newStatus,
-                grade: inspectionData.quality_grade,
+                grade: qualityGrade,
                 updated_at: new Date().toISOString()
             })
             .eq('id', inspectionData.harvest_id);
@@ -5124,12 +5163,13 @@ app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => 
                 entity_type: 'inspection',
                 entity_id: inspection.id,
                 qr_code: inspectionData.qr_code,
-                action: inspectionData.is_approved ? 'INSPECTION_APPROVED' : 'INSPECTION_REJECTED',
+                action: isApproved ? 'INSPECTION_APPROVED' : 'INSPECTION_REJECTED',
                 action_by: userId,
-                metadata: { grade: inspectionData.quality_grade, score: overallScore }
+                metadata: { grade: qualityGrade, score: overallScore }
             });
         
-        res.json({ success: true, inspection });
+        console.log('[AQUA SUBMIT INSPECTION] Success:', inspection);
+        res.json({ success: true, inspection, data: inspection });
     } catch (error) {
         console.error('[AQUA SUBMIT INSPECTION] Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -5153,7 +5193,7 @@ app.get('/api/aquaculture/inspector/history', verifyToken, async (req, res) => {
         
         if (error) throw error;
         
-        res.json({ success: true, inspections: inspections || [] });
+        res.json({ success: true, data: inspections || [] });
     } catch (error) {
         console.error('[AQUA GET INSPECTION HISTORY] Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -5200,7 +5240,7 @@ app.get('/api/aquaculture/packer/approved-harvests', verifyToken, async (req, re
         
         if (error) throw error;
         
-        res.json({ success: true, harvests: harvests || [] });
+        res.json({ success: true, data: harvests || [] });
     } catch (error) {
         console.error('[AQUA GET APPROVED HARVESTS] Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -5217,7 +5257,7 @@ app.get('/api/aquaculture/packer/crates', verifyToken, async (req, res) => {
         
         if (error) throw error;
         
-        res.json({ success: true, crates: crates || [] });
+        res.json({ success: true, data: crates || [] });
     } catch (error) {
         console.error('[AQUA GET CRATES] Error:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -5448,10 +5488,34 @@ module.exports = app;
 
 // Only listen if run directly
 if (require.main === module) {
-    app.listen(PORT, async () => {
+    const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
         
-        // Initialize storage buckets on startup
-        await initializeStorageBuckets();
+        // Initialize storage buckets on startup (fire and forget)
+        initializeStorageBuckets().catch(err => console.error('Bucket init error:', err));
     });
+    
+    // Explicitly keep the server reference alive
+    // This prevents Node.js from exiting when event loop becomes empty
+    server.ref();
+    
+    // Also keep a timer to prevent event loop from draining
+    const keepAlive = setInterval(() => {
+        // This empty interval keeps the Node.js event loop active
+    }, 60000);
+    
+    // Handle process signals gracefully
+    const shutdown = () => {
+        console.log('Shutting down gracefully...');
+        clearInterval(keepAlive);
+        server.close(() => {
+            console.log('Server closed');
+            process.exit(0);
+        });
+        // Force exit after 10 seconds
+        setTimeout(() => process.exit(1), 10000);
+    };
+    
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 }

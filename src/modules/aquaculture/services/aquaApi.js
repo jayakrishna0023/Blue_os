@@ -3,25 +3,7 @@ import axios from 'axios';
 // Use relative path '/api' to trigger the Vite proxy
 const API_URL = '/api/aquaculture';
 
-const aquaApi = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token to all requests
-aquaApi.interceptors.request.use((config) => {
-  const session = getAquaSession();
-  if (session?.token) {
-    config.headers.Authorization = `Bearer ${session.token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
-// Session management
+// Session management - MUST be defined before interceptor
 const AQUA_SESSION_KEY = 'blueos_aqua_session';
 
 const getAquaSession = () => {
@@ -40,6 +22,25 @@ const setAquaSession = (session) => {
 const clearAquaSession = () => {
   localStorage.removeItem(AQUA_SESSION_KEY);
 };
+
+// Create axios instance
+const aquaApi = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add auth token to all requests
+aquaApi.interceptors.request.use((config) => {
+  const session = getAquaSession();
+  if (session?.token) {
+    config.headers.Authorization = `Bearer ${session.token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
 // =====================================================
 // AUTH API
