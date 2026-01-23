@@ -144,26 +144,71 @@ const QRScannerModal = ({ isOpen, onClose, onScan, title = "Scan QR Code", allow
 
   // Handle successful scan
   const handleSuccessfulScan = async (code) => {
+    // Stop camera immediately
+    setIsScanning(false);
     await stopScanner();
+    
+    // Reset state
+    setScanSuccess(false);
+    hasScannedRef.current = false;
+    
+    // Call callbacks after camera is fully stopped
     onScanRef.current(code);
     onCloseRef.current();
   };
 
-  // Stop scanner
+  // Stop scanner and release all camera resources
   const stopScanner = async () => {
+    // First, stop the Html5Qrcode instance
     if (scannerInstanceRef.current) {
       try {
         if (flashOn) {
           await scannerInstanceRef.current.turnOffFlash().catch(() => {});
         }
-        await scannerInstanceRef.current.stop();
+        const state = scannerInstanceRef.current.getState();
+        if (state === 2) { // Html5QrcodeScannerState.SCANNING
+          await scannerInstanceRef.current.stop();
+        }
+        // Clear the scanner to release DOM elements
+        await scannerInstanceRef.current.clear().catch(() => {});
       } catch (e) {
         console.warn('Stop scanner error:', e);
       }
       scannerInstanceRef.current = null;
     }
+    
+    // Forcefully stop all video tracks to ensure camera is released
+    try {
+      const videoElements = document.querySelectorAll('#qr-reader video');
+      videoElements.forEach(video => {
+        if (video.srcObject) {
+          const tracks = video.srcObject.getTracks();
+          tracks.forEach(track => {
+            track.stop();
+            console.log('Stopped track:', track.label);
+          });
+          video.srcObject = null;
+        }
+      });
+      
+      // Also check for any lingering streams
+      if (navigator.mediaDevices) {
+        // Get all active media streams and stop them
+        const allVideos = document.querySelectorAll('video');
+        allVideos.forEach(video => {
+          if (video.srcObject && video.srcObject instanceof MediaStream) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Error stopping video tracks:', e);
+    }
+    
     setIsScanning(false);
     setFlashOn(false);
+    setHasFlash(false);
   };
 
   // Toggle flash
@@ -247,13 +292,29 @@ const QRScannerModal = ({ isOpen, onClose, onScan, title = "Scan QR Code", allow
 
   // Handle close
   const handleClose = useCallback(async () => {
+    // Immediately set scanning to false to prevent re-renders
+    setIsScanning(false);
+    
+    // Stop scanner and release camera
     await stopScanner();
+    
+    // Reset all state
     setShowManualEntry(false);
     setManualCode('');
     setScanError('');
     setScanSuccess(false);
     hasScannedRef.current = false;
+    
+    // Call onClose callback
     onCloseRef.current();
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Force stop all cameras when component unmounts
+      stopScanner();
+    };
   }, []);
 
   // Initialize on open
@@ -263,6 +324,7 @@ const QRScannerModal = ({ isOpen, onClose, onScan, title = "Scan QR Code", allow
       setShowManualEntry(false);
       setManualCode('');
       setScanError('');
+      hasScannedRef.current = false;
       
       getCameras().then(devices => {
         if (devices.length > 0) {
@@ -275,7 +337,9 @@ const QRScannerModal = ({ isOpen, onClose, onScan, title = "Scan QR Code", allow
           
           // Small delay for DOM
           setTimeout(() => {
-            startScanning(cameraToUse);
+            if (isOpen) { // Double-check still open
+              startScanning(cameraToUse);
+            }
           }, 200);
         } else {
           // No cameras - show manual entry option
@@ -283,6 +347,7 @@ const QRScannerModal = ({ isOpen, onClose, onScan, title = "Scan QR Code", allow
         }
       });
     } else {
+      // Modal closed - ensure camera is stopped
       stopScanner();
     }
     

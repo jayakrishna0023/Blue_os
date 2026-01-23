@@ -3110,6 +3110,57 @@ app.get('/api/trips/:tripId/crew', async (req, res) => {
     }
 });
 
+// Complete a trip - mark as completed with return date
+app.put('/api/trips/:tripId/complete', async (req, res) => {
+    const { tripId } = req.params;
+    try {
+        console.log(`[PUT /api/trips/${tripId}/complete] Completing trip`);
+        
+        const tripIdNum = parseInt(tripId);
+        if (isNaN(tripIdNum)) {
+            return res.status(400).json({ success: false, message: 'Invalid trip ID' });
+        }
+        
+        // First, get the current trip to ensure it exists and is active
+        const { data: existingTrip, error: fetchError } = await supabase
+            .from('trips')
+            .select('*')
+            .eq('id', tripIdNum)
+            .single();
+        
+        if (fetchError || !existingTrip) {
+            console.error(`[PUT /api/trips/${tripId}/complete] Trip not found:`, fetchError);
+            return res.status(404).json({ success: false, message: 'Trip not found' });
+        }
+        
+        if (existingTrip.status === 'completed') {
+            return res.json({ success: true, message: 'Trip already completed', trip: existingTrip });
+        }
+        
+        // Update trip status to completed and set return date
+        const { data: updatedTrip, error: updateError } = await supabase
+            .from('trips')
+            .update({ 
+                status: 'completed',
+                return_date: new Date().toISOString()
+            })
+            .eq('id', tripIdNum)
+            .select()
+            .single();
+        
+        if (updateError) {
+            console.error(`[PUT /api/trips/${tripId}/complete] Update error:`, updateError);
+            throw updateError;
+        }
+        
+        console.log(`[PUT /api/trips/${tripId}/complete] Trip completed successfully`);
+        res.json({ success: true, message: 'Trip completed successfully', trip: updatedTrip });
+    } catch (error) {
+        console.error(`[PUT /api/trips/${tripId}/complete] Error:`, error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 app.get('/api/admin/fishers', async (req, res) => {
     try {
         const { data: fishers, error } = await supabase
@@ -4319,6 +4370,1078 @@ app.post('/api/admin/link-vessels-users', async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 });
+
+// =====================================================
+// AQUACULTURE MODULE ENDPOINTS
+// =====================================================
+
+// -----------------------------------------------------
+// AQUACULTURE AUTH
+// -----------------------------------------------------
+
+// Aquaculture Login
+app.post('/api/aquaculture/auth/login', async (req, res) => {
+    const { username, password, role } = req.body;
+    
+    try {
+        console.log(`[AQUA LOGIN] Attempt for user: ${username}, role: ${role}`);
+        
+        // Query aqua_users table
+        const { data: user, error } = await supabase
+            .from('aqua_users')
+            .select('*')
+            .eq('username', username)
+            .eq('is_active', true)
+            .single();
+        
+        if (error || !user) {
+            console.log(`[AQUA LOGIN] User not found: ${username}`);
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+        
+        // For demo, check plain password or allow demo passwords
+        const isValidPassword = password === 'password123' || 
+                               password === user.password_hash ||
+                               password === username + '123';
+        
+        if (!isValidPassword) {
+            console.log(`[AQUA LOGIN] Invalid password for: ${username}`);
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+        
+        // Check role matches
+        if (role && user.role !== role) {
+            console.log(`[AQUA LOGIN] Role mismatch: expected ${role}, got ${user.role}`);
+            return res.status(401).json({ success: false, message: 'Invalid role for this user' });
+        }
+        
+        // Generate session token
+        const sessionId = uuidv4();
+        const token = generateToken(user, sessionId);
+        
+        console.log(`[AQUA LOGIN] Success for: ${username}`);
+        
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                role: user.role,
+                fullName: user.full_name,
+                email: user.email,
+                phone: user.phone,
+                address: user.address,
+                profileImage: user.profile_image
+            },
+            token,
+            sessionId
+        });
+    } catch (error) {
+        console.error('[AQUA LOGIN] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Aquaculture Session Validation
+app.get('/api/aquaculture/auth/validate', verifyToken, (req, res) => {
+    res.json({ valid: !!req.user });
+});
+
+// -----------------------------------------------------
+// AQUACULTURE FARMER ENDPOINTS
+// -----------------------------------------------------
+
+// Farmer Dashboard Stats
+app.get('/api/aquaculture/farmer/dashboard', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        
+        // Get counts
+        const [farmsResult, pondsResult, harvestsResult] = await Promise.all([
+            supabase.from('aqua_farms').select('id', { count: 'exact' }).eq('farmer_id', userId),
+            supabase.from('aqua_ponds').select('id, status, farm_id').eq('farm_id', supabase.from('aqua_farms').select('id').eq('farmer_id', userId)),
+            supabase.from('aqua_harvests').select('id, status').eq('farm_id', supabase.from('aqua_farms').select('id').eq('farmer_id', userId))
+        ]);
+        
+        res.json({
+            success: true,
+            stats: {
+                totalFarms: farmsResult.count || 0,
+                totalPonds: pondsResult.data?.length || 0,
+                activeStocks: pondsResult.data?.filter(p => p.status === 'stocked').length || 0,
+                pendingInspections: harvestsResult.data?.filter(h => h.status === 'pending_inspection').length || 0
+            }
+        });
+    } catch (error) {
+        console.error('[AQUA FARMER DASHBOARD] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Farmer's Farms
+app.get('/api/aquaculture/farmer/farms', verifyToken, async (req, res) => {
+    try {
+        // Check authentication
+        if (!req.user || !req.user.userId) {
+            console.log('[AQUA GET FARMS] No authenticated user');
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
+        
+        const userId = req.user.userId;
+        console.log('[AQUA GET FARMS] User ID:', userId);
+        
+        const { data: farms, error } = await supabase
+            .from('aqua_farms')
+            .select('*')
+            .eq('farmer_id', userId)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, data: farms || [] });
+    } catch (error) {
+        console.error('[AQUA GET FARMS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Farm by ID
+app.get('/api/aquaculture/farmer/farms/:farmId', verifyToken, async (req, res) => {
+    try {
+        const { farmId } = req.params;
+        
+        const { data: farm, error } = await supabase
+            .from('aqua_farms')
+            .select('*')
+            .eq('id', farmId)
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, farm });
+    } catch (error) {
+        console.error('[AQUA GET FARM] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Create Farm
+app.post('/api/aquaculture/farmer/farms', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const farmData = req.body;
+        
+        // Generate farm code
+        const farmCode = `FARM-AQUA-${Date.now().toString(36).toUpperCase()}`;
+        
+        const { data: farm, error } = await supabase
+            .from('aqua_farms')
+            .insert({
+                ...farmData,
+                farmer_id: userId,
+                farm_code: farmCode
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, farm });
+    } catch (error) {
+        console.error('[AQUA CREATE FARM] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update Farm
+app.put('/api/aquaculture/farmer/farms/:farmId', verifyToken, async (req, res) => {
+    try {
+        const { farmId } = req.params;
+        const farmData = req.body;
+        
+        const { data: farm, error } = await supabase
+            .from('aqua_farms')
+            .update({
+                ...farmData,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', farmId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, farm });
+    } catch (error) {
+        console.error('[AQUA UPDATE FARM] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Ponds
+app.get('/api/aquaculture/farmer/ponds', verifyToken, async (req, res) => {
+    try {
+        // Check authentication
+        if (!req.user || !req.user.userId) {
+            console.log('[AQUA GET PONDS] No authenticated user');
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
+        
+        const userId = req.user.userId;
+        const { farmId } = req.query;
+        console.log('[AQUA GET PONDS] User ID:', userId, 'Farm ID:', farmId);
+        
+        // First, get user's farm IDs
+        const { data: userFarms, error: farmsError } = await supabase
+            .from('aqua_farms')
+            .select('id')
+            .eq('farmer_id', userId);
+        
+        if (farmsError) throw farmsError;
+        
+        // If user has no farms, return empty array
+        if (!userFarms || userFarms.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+        
+        const farmIds = userFarms.map(f => f.id);
+        
+        let query = supabase
+            .from('aqua_ponds')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (farmId) {
+            query = query.eq('farm_id', farmId);
+        } else {
+            query = query.in('farm_id', farmIds);
+        }
+        
+        const { data: ponds, error } = await query;
+        
+        if (error) throw error;
+        
+        res.json({ success: true, data: ponds || [] });
+    } catch (error) {
+        console.error('[AQUA GET PONDS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Create Pond
+app.post('/api/aquaculture/farmer/ponds', verifyToken, async (req, res) => {
+    try {
+        const pondData = req.body;
+        
+        // Generate pond code
+        const pondCode = `POND-${Date.now().toString(36).toUpperCase()}`;
+        
+        const { data: pond, error } = await supabase
+            .from('aqua_ponds')
+            .insert({
+                ...pondData,
+                pond_code: pondCode
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, pond });
+    } catch (error) {
+        console.error('[AQUA CREATE POND] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Update Pond
+app.put('/api/aquaculture/farmer/ponds/:pondId', verifyToken, async (req, res) => {
+    try {
+        const { pondId } = req.params;
+        const pondData = req.body;
+        
+        const { data: pond, error } = await supabase
+            .from('aqua_ponds')
+            .update({
+                ...pondData,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', pondId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, pond });
+    } catch (error) {
+        console.error('[AQUA UPDATE POND] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Create Stocking
+app.post('/api/aquaculture/farmer/stockings', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const stockingData = req.body;
+        
+        // Insert stocking record
+        const { data: stocking, error } = await supabase
+            .from('aqua_stockings')
+            .insert({
+                ...stockingData,
+                created_by: userId
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Update pond status
+        await supabase
+            .from('aqua_ponds')
+            .update({
+                status: 'stocked',
+                stocking_date: stockingData.stocking_date,
+                stocking_density: stockingData.stocking_density,
+                species: stockingData.species,
+                doc: 0,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', stockingData.pond_id);
+        
+        res.json({ success: true, stocking });
+    } catch (error) {
+        console.error('[AQUA CREATE STOCKING] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Stockings
+app.get('/api/aquaculture/farmer/stockings', verifyToken, async (req, res) => {
+    try {
+        const { pondId } = req.query;
+        
+        let query = supabase
+            .from('aqua_stockings')
+            .select('*')
+            .order('stocking_date', { ascending: false });
+        
+        if (pondId) {
+            query = query.eq('pond_id', pondId);
+        }
+        
+        const { data: stockings, error } = await query;
+        
+        if (error) throw error;
+        
+        res.json({ success: true, data: stockings || [] });
+    } catch (error) {
+        console.error('[AQUA GET STOCKINGS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Record Water Quality
+app.post('/api/aquaculture/farmer/water-quality', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const qualityData = req.body;
+        
+        const { data: record, error } = await supabase
+            .from('aqua_water_quality')
+            .insert({
+                ...qualityData,
+                recorded_by: userId
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, record });
+    } catch (error) {
+        console.error('[AQUA RECORD WATER QUALITY] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Water Quality History
+app.get('/api/aquaculture/farmer/water-quality/:pondId', verifyToken, async (req, res) => {
+    try {
+        const { pondId } = req.params;
+        const { days = 30 } = req.query;
+        
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - parseInt(days));
+        
+        const { data: records, error } = await supabase
+            .from('aqua_water_quality')
+            .select('*')
+            .eq('pond_id', pondId)
+            .gte('recorded_date', startDate.toISOString().split('T')[0])
+            .order('recorded_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, records: records || [] });
+    } catch (error) {
+        console.error('[AQUA GET WATER QUALITY] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Record Feed
+app.post('/api/aquaculture/farmer/feed', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const feedData = req.body;
+        
+        const { data: record, error } = await supabase
+            .from('aqua_feed_records')
+            .insert({
+                ...feedData,
+                recorded_by: userId
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, record });
+    } catch (error) {
+        console.error('[AQUA RECORD FEED] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Feed History
+app.get('/api/aquaculture/farmer/feed/:pondId', verifyToken, async (req, res) => {
+    try {
+        const { pondId } = req.params;
+        const { days = 30 } = req.query;
+        
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - parseInt(days));
+        
+        const { data: records, error } = await supabase
+            .from('aqua_feed_records')
+            .select('*')
+            .eq('pond_id', pondId)
+            .gte('feed_date', startDate.toISOString().split('T')[0])
+            .order('feed_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, records: records || [] });
+    } catch (error) {
+        console.error('[AQUA GET FEED] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Record Growth Sample
+app.post('/api/aquaculture/farmer/growth-samples', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const sampleData = req.body;
+        
+        const { data: record, error } = await supabase
+            .from('aqua_growth_samples')
+            .insert({
+                ...sampleData,
+                recorded_by: userId
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, record });
+    } catch (error) {
+        console.error('[AQUA RECORD GROWTH SAMPLE] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Growth History
+app.get('/api/aquaculture/farmer/growth-samples/:pondId', verifyToken, async (req, res) => {
+    try {
+        const { pondId } = req.params;
+        
+        const { data: records, error } = await supabase
+            .from('aqua_growth_samples')
+            .select('*')
+            .eq('pond_id', pondId)
+            .order('sample_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, records: records || [] });
+    } catch (error) {
+        console.error('[AQUA GET GROWTH SAMPLES] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Create Harvest
+app.post('/api/aquaculture/farmer/harvests', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const harvestData = req.body;
+        
+        // Generate harvest code and QR
+        const harvestCode = `HARVEST-${Date.now().toString(36).toUpperCase()}`;
+        const qrCode = `AQUA-H-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        
+        const { data: harvest, error } = await supabase
+            .from('aqua_harvests')
+            .insert({
+                ...harvestData,
+                harvest_code: harvestCode,
+                qr_code: qrCode,
+                status: 'pending_inspection',
+                created_by: userId
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Update pond status
+        if (harvestData.harvest_type === 'full') {
+            await supabase
+                .from('aqua_ponds')
+                .update({
+                    status: 'empty',
+                    stocking_date: null,
+                    stocking_density: null,
+                    doc: 0,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', harvestData.pond_id);
+        } else {
+            await supabase
+                .from('aqua_ponds')
+                .update({
+                    status: 'stocked',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', harvestData.pond_id);
+        }
+        
+        // Record traceability
+        await supabase
+            .from('aqua_traceability')
+            .insert({
+                entity_type: 'harvest',
+                entity_id: harvest.id,
+                qr_code: qrCode,
+                action: 'HARVEST_CREATED',
+                action_by: userId,
+                metadata: { harvest_type: harvestData.harvest_type, quantity: harvestData.total_quantity_kg }
+            });
+        
+        res.json({ success: true, harvest });
+    } catch (error) {
+        console.error('[AQUA CREATE HARVEST] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Harvests
+app.get('/api/aquaculture/farmer/harvests', verifyToken, async (req, res) => {
+    try {
+        // Check authentication
+        if (!req.user || !req.user.userId) {
+            console.log('[AQUA GET HARVESTS] No authenticated user');
+            return res.status(401).json({ success: false, message: 'Authentication required' });
+        }
+        
+        const userId = req.user.userId;
+        const { farmId } = req.query;
+        console.log('[AQUA GET HARVESTS] User ID:', userId, 'Farm ID:', farmId);
+        
+        // First, get user's farm IDs
+        const { data: userFarms, error: farmsError } = await supabase
+            .from('aqua_farms')
+            .select('id')
+            .eq('farmer_id', userId);
+        
+        if (farmsError) throw farmsError;
+        
+        // If user has no farms, return empty array
+        if (!userFarms || userFarms.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+        
+        const farmIds = userFarms.map(f => f.id);
+        
+        let query = supabase
+            .from('aqua_harvests')
+            .select('*')
+            .order('harvest_date', { ascending: false });
+        
+        if (farmId) {
+            query = query.eq('farm_id', farmId);
+        } else {
+            query = query.in('farm_id', farmIds);
+        }
+        
+        const { data: harvests, error } = await query;
+        
+        if (error) throw error;
+        
+        res.json({ success: true, data: harvests || [] });
+    } catch (error) {
+        console.error('[AQUA GET HARVESTS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// -----------------------------------------------------
+// AQUACULTURE INSPECTOR ENDPOINTS
+// -----------------------------------------------------
+
+// Inspector Dashboard
+app.get('/api/aquaculture/inspector/dashboard', verifyToken, async (req, res) => {
+    try {
+        const [pendingResult, inspectedResult] = await Promise.all([
+            supabase.from('aqua_harvests').select('id', { count: 'exact' }).eq('status', 'pending_inspection'),
+            supabase.from('aqua_inspections').select('id', { count: 'exact' })
+        ]);
+        
+        res.json({
+            success: true,
+            stats: {
+                pendingInspections: pendingResult.count || 0,
+                completedInspections: inspectedResult.count || 0
+            }
+        });
+    } catch (error) {
+        console.error('[AQUA INSPECTOR DASHBOARD] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Pending Inspections
+app.get('/api/aquaculture/inspector/pending', verifyToken, async (req, res) => {
+    try {
+        const { data: harvests, error } = await supabase
+            .from('aqua_harvests')
+            .select(`
+                *,
+                aqua_ponds(pond_name, pond_code),
+                aqua_farms(farm_name, farm_code, address, district)
+            `)
+            .eq('status', 'pending_inspection')
+            .order('harvest_date', { ascending: true });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, harvests: harvests || [] });
+    } catch (error) {
+        console.error('[AQUA GET PENDING INSPECTIONS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Harvest for Inspection
+app.get('/api/aquaculture/inspector/harvest/:harvestId', verifyToken, async (req, res) => {
+    try {
+        const { harvestId } = req.params;
+        
+        const { data: harvest, error } = await supabase
+            .from('aqua_harvests')
+            .select(`
+                *,
+                aqua_ponds(*),
+                aqua_farms(*)
+            `)
+            .eq('id', harvestId)
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, harvest });
+    } catch (error) {
+        console.error('[AQUA GET HARVEST FOR INSPECTION] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Submit Inspection
+app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const inspectionData = req.body;
+        
+        // Generate inspection code
+        const inspectionCode = `INSP-${Date.now().toString(36).toUpperCase()}`;
+        
+        // Calculate overall score
+        const scores = [
+            inspectionData.appearance_score,
+            inspectionData.freshness_score,
+            inspectionData.odor_score,
+            inspectionData.texture_score,
+            inspectionData.color_score
+        ].filter(s => s != null);
+        
+        const overallScore = scores.length > 0 
+            ? scores.reduce((a, b) => a + b, 0) / scores.length 
+            : null;
+        
+        // Insert inspection
+        const { data: inspection, error } = await supabase
+            .from('aqua_inspections')
+            .insert({
+                ...inspectionData,
+                inspection_code: inspectionCode,
+                inspector_id: userId,
+                overall_score: overallScore
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Update harvest status
+        const newStatus = inspectionData.is_approved ? 'approved' : 'rejected';
+        await supabase
+            .from('aqua_harvests')
+            .update({
+                status: newStatus,
+                grade: inspectionData.quality_grade,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', inspectionData.harvest_id);
+        
+        // Record traceability
+        await supabase
+            .from('aqua_traceability')
+            .insert({
+                entity_type: 'inspection',
+                entity_id: inspection.id,
+                qr_code: inspectionData.qr_code,
+                action: inspectionData.is_approved ? 'INSPECTION_APPROVED' : 'INSPECTION_REJECTED',
+                action_by: userId,
+                metadata: { grade: inspectionData.quality_grade, score: overallScore }
+            });
+        
+        res.json({ success: true, inspection });
+    } catch (error) {
+        console.error('[AQUA SUBMIT INSPECTION] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Inspection History
+app.get('/api/aquaculture/inspector/history', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        
+        const { data: inspections, error } = await supabase
+            .from('aqua_inspections')
+            .select(`
+                *,
+                aqua_harvests(harvest_code, total_quantity_kg),
+                aqua_farms(farm_name)
+            `)
+            .eq('inspector_id', userId)
+            .order('inspection_date', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, inspections: inspections || [] });
+    } catch (error) {
+        console.error('[AQUA GET INSPECTION HISTORY] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// -----------------------------------------------------
+// AQUACULTURE PACKER ENDPOINTS
+// -----------------------------------------------------
+
+// Packer Dashboard
+app.get('/api/aquaculture/packer/dashboard', verifyToken, async (req, res) => {
+    try {
+        const [approvedResult, packedResult] = await Promise.all([
+            supabase.from('aqua_harvests').select('id', { count: 'exact' }).eq('status', 'approved'),
+            supabase.from('aqua_crates').select('id', { count: 'exact' }).eq('status', 'packed')
+        ]);
+        
+        res.json({
+            success: true,
+            stats: {
+                readyForPacking: approvedResult.count || 0,
+                packedCrates: packedResult.count || 0
+            }
+        });
+    } catch (error) {
+        console.error('[AQUA PACKER DASHBOARD] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Approved Harvests for Packing
+app.get('/api/aquaculture/packer/approved-harvests', verifyToken, async (req, res) => {
+    try {
+        const { data: harvests, error } = await supabase
+            .from('aqua_harvests')
+            .select(`
+                *,
+                aqua_farms(farm_name),
+                aqua_inspections(quality_grade, overall_score)
+            `)
+            .eq('status', 'approved')
+            .order('harvest_date', { ascending: true });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, harvests: harvests || [] });
+    } catch (error) {
+        console.error('[AQUA GET APPROVED HARVESTS] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Crates
+app.get('/api/aquaculture/packer/crates', verifyToken, async (req, res) => {
+    try {
+        const { data: crates, error } = await supabase
+            .from('aqua_crates')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, crates: crates || [] });
+    } catch (error) {
+        console.error('[AQUA GET CRATES] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Inspect Crate by Code
+app.get('/api/aquaculture/packer/crates/:crateCode', verifyToken, async (req, res) => {
+    try {
+        const { crateCode } = req.params;
+        
+        const { data: crate, error } = await supabase
+            .from('aqua_crates')
+            .select(`
+                *,
+                aqua_harvests(harvest_code, total_quantity_kg, species, grade)
+            `)
+            .or(`crate_code.eq.${crateCode},qr_code.eq.${crateCode}`)
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({ success: true, crate });
+    } catch (error) {
+        console.error('[AQUA INSPECT CRATE] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Pack Crate
+app.post('/api/aquaculture/packer/pack', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const packingData = req.body;
+        
+        // Generate crate code and QR
+        const crateCode = `CRATE-AQUA-${Date.now().toString(36).toUpperCase()}`;
+        const qrCode = `AQUA-C-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        
+        // Generate QR Image
+        const qrDataUrl = await QRCode.toDataURL(qrCode, {
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' }
+        });
+        
+        const { data: crate, error } = await supabase
+            .from('aqua_crates')
+            .insert({
+                ...packingData,
+                crate_code: crateCode,
+                qr_code: qrCode,
+                qr_image_url: qrDataUrl,
+                packer_id: userId,
+                packing_date: new Date().toISOString(),
+                status: 'packed'
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Update harvest status if all quantity packed
+        if (packingData.harvest_id) {
+            await supabase
+                .from('aqua_harvests')
+                .update({
+                    status: 'packed',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', packingData.harvest_id);
+        }
+        
+        // Record traceability
+        await supabase
+            .from('aqua_traceability')
+            .insert({
+                entity_type: 'crate',
+                entity_id: crate.id,
+                qr_code: qrCode,
+                parent_qr_code: packingData.harvest_qr,
+                action: 'CRATE_PACKED',
+                action_by: userId,
+                metadata: { quantity: packingData.quantity_kg, grade: packingData.grade }
+            });
+        
+        res.json({ success: true, crate });
+    } catch (error) {
+        console.error('[AQUA PACK CRATE] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Dispatch Crate
+app.post('/api/aquaculture/packer/dispatch/:crateId', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const { crateId } = req.params;
+        const dispatchData = req.body;
+        
+        const { data: crate, error } = await supabase
+            .from('aqua_crates')
+            .update({
+                ...dispatchData,
+                status: 'dispatched',
+                dispatch_date: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', crateId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Record traceability
+        await supabase
+            .from('aqua_traceability')
+            .insert({
+                entity_type: 'crate',
+                entity_id: crate.id,
+                qr_code: crate.qr_code,
+                action: 'CRATE_DISPATCHED',
+                action_by: userId,
+                metadata: dispatchData
+            });
+        
+        res.json({ success: true, crate });
+    } catch (error) {
+        console.error('[AQUA DISPATCH CRATE] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// -----------------------------------------------------
+// AQUACULTURE PUBLIC TRACEABILITY
+// -----------------------------------------------------
+
+// Trace by QR Code (Public)
+app.get('/api/aquaculture/trace/:qrCode', async (req, res) => {
+    try {
+        const { qrCode } = req.params;
+        
+        // Check if it's a harvest QR
+        let result = await supabase
+            .from('aqua_harvests')
+            .select(`
+                *,
+                aqua_ponds(pond_name, area_acres, pond_type),
+                aqua_farms(farm_name, address, district, water_source)
+            `)
+            .eq('qr_code', qrCode)
+            .single();
+        
+        if (result.data) {
+            // Get inspection data
+            const { data: inspection } = await supabase
+                .from('aqua_inspections')
+                .select('*')
+                .eq('harvest_id', result.data.id)
+                .single();
+            
+            return res.json({
+                success: true,
+                type: 'harvest',
+                data: {
+                    harvest: result.data,
+                    inspection,
+                    farm: result.data.aqua_farms,
+                    pond: result.data.aqua_ponds
+                }
+            });
+        }
+        
+        // Check if it's a crate QR
+        result = await supabase
+            .from('aqua_crates')
+            .select(`
+                *,
+                aqua_harvests(
+                    harvest_code, harvest_date, species, grade, total_quantity_kg,
+                    aqua_farms(farm_name, address, district)
+                )
+            `)
+            .eq('qr_code', qrCode)
+            .single();
+        
+        if (result.data) {
+            return res.json({
+                success: true,
+                type: 'crate',
+                data: result.data
+            });
+        }
+        
+        res.status(404).json({ success: false, message: 'Product not found' });
+    } catch (error) {
+        console.error('[AQUA TRACE] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Get Full Trace Chain
+app.get('/api/aquaculture/trace/chain/:qrCode', async (req, res) => {
+    try {
+        const { qrCode } = req.params;
+        
+        const { data: chain, error } = await supabase
+            .from('aqua_traceability')
+            .select('*')
+            .or(`qr_code.eq.${qrCode},parent_qr_code.eq.${qrCode}`)
+            .order('action_date', { ascending: true });
+        
+        if (error) throw error;
+        
+        res.json({ success: true, chain: chain || [] });
+    } catch (error) {
+        console.error('[AQUA TRACE CHAIN] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// =====================================================
+// END AQUACULTURE MODULE ENDPOINTS
+// =====================================================
 
 // Export for Vercel
 module.exports = app;

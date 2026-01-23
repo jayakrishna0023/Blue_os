@@ -281,6 +281,10 @@ export const mainAPI = {
     const response = await api.get(`/trips/${tripId}/crew`);
     return response.data;
   },
+  completeTrip: async (tripId) => {
+    const response = await api.put(`/trips/${tripId}/complete`);
+    return response.data;
+  },
   getPendingTrips: async () => {
     const response = await api.get('/trips/pending');
     return response.data;

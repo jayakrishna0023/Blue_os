@@ -78,6 +78,7 @@ const CaptainDashboard = () => {
 
   const handleLogout = () => {
     authAPI.logout();
+    navigate('/login');
   };
 
   const handleTripCreated = (tripData) => {
@@ -86,10 +87,27 @@ const CaptainDashboard = () => {
     setActiveTab('species');
   };
 
-  const handleTripCompleted = () => {
+  const handleTripCompleted = async () => {
+    try {
+      // Call API to complete the trip
+      if (currentTrip?.id) {
+        const response = await mainAPI.completeTrip(currentTrip.id);
+        if (!response.success) {
+          console.error('Failed to complete trip:', response.message);
+          // Still proceed with logout even if API fails
+        }
+      }
+    } catch (error) {
+      console.error('Error completing trip:', error);
+    }
+    
+    // Clear local state
     setCurrentTrip(null);
     sessionStorage.removeItem('currentTrip');
-    setActiveTab('trip');
+    
+    // Logout the user
+    authAPI.logout();
+    navigate('/login');
   };
 
   const tabs = [

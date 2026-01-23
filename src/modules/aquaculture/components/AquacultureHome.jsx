@@ -328,11 +328,11 @@ const AquacultureHome = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Username:</span>
-                    <code className="text-emerald-400">aqua_farmer</code>
+                    <code className="text-emerald-400">aquafarmer</code>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Password:</span>
-                    <code className="text-emerald-400">farmer123</code>
+                    <code className="text-emerald-400">password123</code>
                   </div>
                 </div>
               </div>
@@ -345,11 +345,11 @@ const AquacultureHome = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Username:</span>
-                    <code className="text-blue-400">aqua_inspector</code>
+                    <code className="text-blue-400">aquainspector</code>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Password:</span>
-                    <code className="text-blue-400">inspector123</code>
+                    <code className="text-blue-400">password123</code>
                   </div>
                 </div>
               </div>
@@ -362,11 +362,11 @@ const AquacultureHome = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Username:</span>
-                    <code className="text-orange-400">aqua_packer</code>
+                    <code className="text-orange-400">aquapacker</code>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span className="font-medium">Password:</span>
-                    <code className="text-orange-400">packer123</code>
+                    <code className="text-orange-400">password123</code>
                   </div>
                 </div>
               </div>

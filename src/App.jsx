@@ -35,6 +35,7 @@ import QRGenerator from './modules/wild-fishery/components/Admin/QRGenerator';
 
 // Aquaculture Module - Components
 import AquacultureHome from './modules/aquaculture/components/AquacultureHome';
+import AquaLogin from './modules/aquaculture/components/Auth/AquaLogin';
 import AquaFarmerDashboard from './modules/aquaculture/components/Farmer/AquaFarmerDashboard';
 import AquaInspectorDashboard from './modules/aquaculture/components/Inspector/AquaInspectorDashboard';
 import AquaPackerDashboard from './modules/aquaculture/components/Packer/AquaPackerDashboard';
@@ -235,6 +236,9 @@ function App() {
               
               {/* Aquaculture Home */}
               <Route path="/aquaculture" element={<AquacultureHome />} />
+              
+              {/* Aquaculture Login Routes */}
+              <Route path="/aquaculture/login/:role" element={<AquaLogin />} />
               
               {/* Aquaculture Farmer Dashboard */}
               <Route path="/aquaculture/farmer/dashboard" element={<AquaFarmerDashboard />} />
