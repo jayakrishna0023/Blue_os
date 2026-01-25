@@ -96,7 +96,7 @@ const TripExpenseForm = ({ trip, onClose, onUpdate }) => {
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Price per Liter</label>
                         <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-slate-400">‘È¶</span>
+                            <span className="absolute left-3 top-2.5 text-slate-400">‚Çπ</span>
                             <input
                                 type="number"
                                 name="fuelPrice"
@@ -132,7 +132,7 @@ const TripExpenseForm = ({ trip, onClose, onUpdate }) => {
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Price per Kg</label>
                         <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-slate-400">‘È¶</span>
+                            <span className="absolute left-3 top-2.5 text-slate-400">‚Çπ</span>
                             <input
                                 type="number"
                                 name="icePrice"
@@ -152,7 +152,7 @@ const TripExpenseForm = ({ trip, onClose, onUpdate }) => {
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Food Budget</label>
                     <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-slate-400">‘È¶</span>
+                        <span className="absolute left-3 top-2.5 text-slate-400">‚Çπ</span>
                         <input
                             type="number"
                             name="foodBudget"
@@ -167,7 +167,7 @@ const TripExpenseForm = ({ trip, onClose, onUpdate }) => {
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Other Expenses</label>
                     <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-slate-400">‘È¶</span>
+                        <span className="absolute left-3 top-2.5 text-slate-400">‚Çπ</span>
                         <input
                             type="number"
                             name="otherExpenses"

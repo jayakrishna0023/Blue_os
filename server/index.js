@@ -5118,7 +5118,7 @@ app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => 
             ? scores.reduce((a, b) => a + b, 0) / scores.length 
             : (qualityScore || inspectionData.freshness_score || null);
         
-        // Insert inspection record
+        // Insert inspection record - only use columns that exist in the table
         const { data: inspection, error } = await supabase
             .from('aqua_inspections')
             .insert({
@@ -5127,14 +5127,7 @@ app.post('/api/aquaculture/inspector/inspect', verifyToken, async (req, res) => 
                 inspector_id: userId,
                 is_approved: isApproved,
                 quality_grade: qualityGrade,
-                quality_score: qualityScore,
-                freshness_score: inspectionData.freshness_score,
-                water_temp_c: inspectionData.water_temp_c,
-                ph_level: inspectionData.ph_level,
-                dissolved_oxygen: inspectionData.dissolved_oxygen,
-                avg_weight_g: inspectionData.avg_weight_g,
-                overall_score: overallScore,
-                remarks: inspectionData.remarks,
+                overall_score: overallScore || inspectionData.freshness_score,
                 inspection_date: new Date().toISOString()
             })
             .select()
