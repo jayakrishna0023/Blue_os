@@ -138,25 +138,25 @@ const WildFisheryHome = () => {
             </div>
           </div>
 
-          {/* Demo Credentials */}
+          {/* Help Section */}
           <div className="mt-12 p-6 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-            <h3 className="text-lg font-semibold text-blue-400 mb-4 text-center">Demo Credentials</h3>
+            <h3 className="text-lg font-semibold text-blue-400 mb-4 text-center">Getting Started</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="bg-slate-900/50 rounded-lg p-3">
                 <p className="text-slate-400">Admin</p>
-                <p className="text-white font-mono">admin / admin123</p>
+                <p className="text-white">System management</p>
               </div>
               <div className="bg-slate-900/50 rounded-lg p-3">
                 <p className="text-slate-400">Captain</p>
-                <p className="text-white font-mono">captain / captain123</p>
+                <p className="text-white">Trip & catch logging</p>
               </div>
               <div className="bg-slate-900/50 rounded-lg p-3">
                 <p className="text-slate-400">Worker</p>
-                <p className="text-white font-mono">worker / worker123</p>
+                <p className="text-white">Quality & packing</p>
               </div>
               <div className="bg-slate-900/50 rounded-lg p-3">
                 <p className="text-slate-400">Inspector</p>
-                <p className="text-white font-mono">inspector / inspector123</p>
+                <p className="text-white">Quality control</p>
               </div>
             </div>
             <p className="text-center text-slate-500 text-xs mt-4">Fisher & Vessel Owner: Use OTP 1234</p>

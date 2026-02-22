@@ -127,7 +127,7 @@ const Footer = () => (
         <span className="text-white font-bold tracking-wider">BlueOS Mariculture</span>
     </div>
     <p className="text-slate-600 text-sm">
-      © 2025 BlueOS Integrated Fisheries Management System. All rights reserved.
+      © {new Date().getFullYear()} BlueOS Integrated Fisheries Management System. All rights reserved.
     </p>
   </footer>
 );
@@ -310,13 +310,13 @@ const MaricultureHome = () => {
             ))}
           </div>
 
-          {/* Demo Credentials Info */}
+          {/* Getting Started Info */}
           <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-purple-600/20 rounded-lg">
                 <Shield className="w-6 h-6 text-purple-400" />
               </div>
-              <h3 className="text-xl font-bold text-white">Demo Login Credentials</h3>
+              <h3 className="text-xl font-bold text-white">Getting Started</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -325,16 +325,7 @@ const MaricultureHome = () => {
                   <Leaf className="w-5 h-5 text-purple-400" />
                   <h4 className="font-bold text-white">Farmer</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-purple-400">mari_farmer</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-purple-400">farmer123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Manage offshore cages, seaweed lines, and marine farming operations.</p>
               </div>
 
               <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
@@ -342,16 +333,7 @@ const MaricultureHome = () => {
                   <ClipboardCheck className="w-5 h-5 text-cyan-400" />
                   <h4 className="font-bold text-white">Inspector</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-cyan-400">mari_inspector</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-cyan-400">inspector123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Verify marine conditions, certify quality, and audit environmental compliance.</p>
               </div>
 
               <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
@@ -359,21 +341,12 @@ const MaricultureHome = () => {
                   <Package className="w-5 h-5 text-pink-400" />
                   <h4 className="font-bold text-white">Packer</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-pink-400">mari_packer</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-pink-400">packer123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Handle processing, crate labeling, and cold chain logistics for marine products.</p>
               </div>
             </div>
 
             <p className="text-center text-slate-500 text-sm mt-6">
-              ⚠️ These are demo credentials for testing only. Use them to explore the module.
+              Contact your administrator for login credentials.
             </p>
           </div>
         </div>

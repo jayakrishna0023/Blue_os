@@ -47,6 +47,26 @@ const TripApprovals = () => {
     }
   };
 
+  const handleReject = async (tripId) => {
+    const reason = window.prompt('Please provide a reason for rejecting this trip:');
+    if (!reason) return; // User cancelled
+    
+    setProcessingId(tripId);
+    try {
+      const response = await mainAPI.rejectTrip(tripId, reason);
+      if (response.success) {
+        setTrips(prev => prev.filter(t => t.id !== tripId));
+        toast.success('Trip rejected.', 'Rejected');
+      } else {
+        toast.error(response.message || 'Failed to reject trip', 'Error');
+      }
+    } catch (err) {
+      toast.error('Error rejecting trip', 'Error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-slate-500">Loading pending trips...</div>;
 
   return (
@@ -125,14 +145,21 @@ const TripApprovals = () => {
                     disabled={processingId === trip.id}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {processingId === trip.id ? 'Approving...' : (
+                    {processingId === trip.id ? 'Processing...' : (
                         <>
                             <CheckCircle className="w-5 h-5" />
                             Approve Trip
                         </>
                     )}
                   </button>
-                  {/* Reject button could go here */}
+                  <button 
+                    onClick={() => handleReject(trip.id)}
+                    disabled={processingId === trip.id}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <XCircle className="w-5 h-5" />
+                    Reject Trip
+                  </button>
                 </div>
               </div>
             </div>

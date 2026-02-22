@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LogOut, ClipboardCheck, Shell, Search, Eye, Camera, CheckCircle, 
@@ -7,93 +7,68 @@ import {
 import { useLanguage } from '../../../shared/context/LanguageContext';
 import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
 import Toast from '../../../shared/components/Shared/Toast';
+import { mariAuthAPI, mariInspectorAPI } from '../../services/mariApi';
 
 const MariInspectorDashboard = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState('pending');
   const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedHarvest, setSelectedHarvest] = useState(null);
   const [showInspectionModal, setShowInspectionModal] = useState(false);
 
-  // Demo inspector data
-  const [inspectorData] = useState({
-    id: 'INS-MR-001',
-    name: 'Murugan Selvam',
-    designation: 'Quality Inspector',
-    zone: 'Ramanathapuram Zone',
-    inspectionsToday: 2,
-    totalInspections: 89
+  // Real data state
+  const [inspectorData, setInspectorData] = useState({
+    id: '', name: '', designation: 'Quality Inspector', zone: 'Mariculture Zone',
+    inspectionsToday: 0, totalInspections: 0
   });
-
-  // Demo pending inspections
-  const [pendingInspections] = useState([
-    {
-      id: 'MH001',
-      farmerId: 'MF-001',
-      farmerName: 'Selvam Murugan',
-      farmName: 'Coastal Seaweed Farm',
-      unitName: 'Longline L1',
-      unitType: 'Longline',
-      harvestDate: '2024-12-10',
-      quantity: '720 kg',
-      species: 'Kappaphycus alvarezii',
-      harvestMethod: 'Manual',
-      requestTime: '07:30 AM'
-    }
-  ]);
-
-  // Demo completed inspections
-  const [completedInspections] = useState([
-    {
-      id: 'MH002',
-      farmerId: 'MF-001',
-      farmerName: 'Selvam Murugan',
-      farmName: 'Blue Lagoon Farm',
-      unitName: 'Cage Alpha',
-      unitType: 'Sea Cage',
-      harvestDate: '2024-12-08',
-      quantity: '450 kg',
-      species: 'Asian Seabass',
-      inspectionDate: '2024-12-08',
-      waterTemp: '27.5°C',
-      salinity: '32 ppt',
-      grade: 'Premium',
-      qualityScore: 'A',
-      status: 'approved'
-    },
-    {
-      id: 'MH003',
-      farmerId: 'MF-001',
-      farmerName: 'Selvam Murugan',
-      farmName: 'Coastal Seaweed Farm',
-      unitName: 'Longline L2',
-      unitType: 'Longline',
-      harvestDate: '2024-12-05',
-      quantity: '680 kg',
-      species: 'Kappaphycus alvarezii',
-      inspectionDate: '2024-12-05',
-      moistureContent: '82%',
-      cleanliness: 'Good',
-      grade: 'Grade A',
-      qualityScore: 'A',
-      status: 'approved'
-    }
-  ]);
+  const [pendingInspections, setPendingInspections] = useState([]);
+  const [completedInspections, setCompletedInspections] = useState([]);
 
   // Inspection form state
   const [inspectionForm, setInspectionForm] = useState({
-    waterTemp: '',
-    salinity: '',
-    moistureContent: '',
-    cleanliness: '',
-    grade: '',
-    qualityScore: '',
-    remarks: '',
-    images: []
+    waterTemp: '', salinity: '', moistureContent: '', cleanliness: '',
+    grade: '', qualityScore: '', remarks: '', images: []
   });
 
+  // Auth check + initial load
+  useEffect(() => {
+    if (!mariAuthAPI.isAuthenticated()) {
+      navigate('/mariculture/login/inspector');
+      return;
+    }
+    const user = mariAuthAPI.getCurrentUser();
+    if (user) {
+      setInspectorData(prev => ({ ...prev, id: user.id, name: user.name || user.username }));
+    }
+    loadAllData();
+  }, []);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [pendingRes, historyRes, statsRes] = await Promise.all([
+        mariInspectorAPI.getPendingInspections().catch(() => ({ data: { data: [] } })),
+        mariInspectorAPI.getInspectionHistory().catch(() => ({ data: { data: [] } })),
+        mariInspectorAPI.getDashboardStats().catch(() => ({ data: { stats: {} } }))
+      ]);
+      setPendingInspections(pendingRes.data?.data || []);
+      setCompletedInspections(historyRes.data?.data || []);
+      const stats = statsRes.data?.stats || {};
+      setInspectorData(prev => ({
+        ...prev,
+        inspectionsToday: pendingRes.data?.data?.length || 0,
+        totalInspections: stats.completedInspections || historyRes.data?.data?.length || 0
+      }));
+    } catch (err) {
+      console.error('Load data error:', err);
+    }
+    setLoading(false);
+  };
+
   const handleLogout = () => {
+    mariAuthAPI.logout();
     navigate('/mariculture');
   };
 
@@ -102,20 +77,29 @@ const MariInspectorDashboard = () => {
     setShowInspectionModal(true);
   };
 
-  const handleSubmitInspection = () => {
-    setToast({ message: 'Inspection submitted successfully!', type: 'success' });
-    setShowInspectionModal(false);
-    setSelectedHarvest(null);
-    setInspectionForm({
-      waterTemp: '',
-      salinity: '',
-      moistureContent: '',
-      cleanliness: '',
-      grade: '',
-      qualityScore: '',
-      remarks: '',
-      images: []
-    });
+  const handleSubmitInspection = async () => {
+    try {
+      const isApproved = inspectionForm.grade && !inspectionForm.grade.toLowerCase().includes('rejected');
+      await mariInspectorAPI.submitInspection({
+        harvest_id: selectedHarvest.id,
+        water_temp_c: inspectionForm.waterTemp,
+        ph_level: inspectionForm.salinity,
+        dissolved_oxygen: null,
+        avg_weight_g: null,
+        freshness_score: 8,
+        quality_score: inspectionForm.qualityScore === 'A' ? 9 : inspectionForm.qualityScore === 'B' ? 7 : 5,
+        grade: inspectionForm.grade,
+        remarks: inspectionForm.remarks,
+        decision: isApproved ? 'approve' : 'reject'
+      });
+      setToast({ message: 'Inspection submitted successfully!', type: 'success' });
+      setShowInspectionModal(false);
+      setSelectedHarvest(null);
+      setInspectionForm({ waterTemp: '', salinity: '', moistureContent: '', cleanliness: '', grade: '', qualityScore: '', remarks: '', images: [] });
+      loadAllData();
+    } catch (err) {
+      setToast({ message: 'Failed to submit inspection: ' + (err.response?.data?.message || err.message), type: 'error' });
+    }
   };
 
   const seaweedGrades = ['Grade A', 'Grade B', 'Grade C', 'Rejected'];
@@ -220,25 +204,25 @@ const MariInspectorDashboard = () => {
                         Pending Inspection
                       </span>
                       <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">
-                        {harvest.unitType}
+                        {harvest.method || harvest.unitType || 'harvest'}
                       </span>
-                      <span className="text-slate-500 text-sm">Request: {harvest.requestTime}</span>
+                      <span className="text-slate-500 text-sm">{harvest.harvest_code || ''}</span>
                     </div>
                     <h4 className="text-lg font-semibold text-white mb-1">
-                      {harvest.farmName} - {harvest.unitName}
+                      {harvest.species} - {harvest.harvest_code || harvest.id}
                     </h4>
                     <p className="text-slate-400 text-sm mb-3">
-                      Farmer: {harvest.farmerName} ({harvest.farmerId})
+                      Farm ID: {harvest.farm_id || 'N/A'}
                     </p>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-slate-500">Harvest Date</p>
-                        <p className="text-white">{harvest.harvestDate}</p>
+                        <p className="text-white">{harvest.harvest_date || harvest.harvestDate}</p>
                       </div>
                       <div>
                         <p className="text-slate-500">Quantity</p>
-                        <p className="text-white">{harvest.quantity}</p>
+                        <p className="text-white">{harvest.total_quantity_kg ? harvest.total_quantity_kg + ' kg' : harvest.quantity}</p>
                       </div>
                       <div>
                         <p className="text-slate-500">Species</p>
@@ -246,7 +230,7 @@ const MariInspectorDashboard = () => {
                       </div>
                       <div>
                         <p className="text-slate-500">Method</p>
-                        <p className="text-white">{harvest.harvestMethod}</p>
+                        <p className="text-white">{harvest.method || harvest.harvestMethod || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -281,52 +265,30 @@ const MariInspectorDashboard = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`px-2 py-1 rounded-full text-xs ${
-                        inspection.status === 'approved' 
+                        inspection.decision === 'approve' || inspection.status === 'approved'
                           ? 'bg-emerald-500/20 text-emerald-400' 
                           : 'bg-red-500/20 text-red-400'
                       }`}>
-                        {inspection.status === 'approved' ? 'Approved' : 'Rejected'}
+                        {inspection.decision === 'approve' || inspection.status === 'approved' ? 'Approved' : 'Rejected'}
                       </span>
-                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">
-                        {inspection.unitType}
-                      </span>
-                      <span className="text-slate-500 text-sm">Inspected: {inspection.inspectionDate}</span>
+                      <span className="text-slate-500 text-sm">Inspected: {inspection.inspection_date || inspection.inspectionDate}</span>
                     </div>
                     <h4 className="text-lg font-semibold text-white mb-1">
-                      {inspection.farmName} - {inspection.unitName}
+                      Inspection #{inspection.id}
                     </h4>
-                    <p className="text-slate-400 text-sm mb-3">
-                      Farmer: {inspection.farmerName}
-                    </p>
                     
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                       <div>
-                        <p className="text-slate-500">Quantity</p>
-                        <p className="text-white">{inspection.quantity}</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Species</p>
-                        <p className="text-white">{inspection.species}</p>
-                      </div>
-                      {inspection.waterTemp && (
-                        <div>
-                          <p className="text-slate-500">Water Temp</p>
-                          <p className="text-white">{inspection.waterTemp}</p>
-                        </div>
-                      )}
-                      {inspection.moistureContent && (
-                        <div>
-                          <p className="text-slate-500">Moisture</p>
-                          <p className="text-white">{inspection.moistureContent}</p>
-                        </div>
-                      )}
-                      <div>
                         <p className="text-slate-500">Grade</p>
-                        <p className="text-purple-400 font-medium">{inspection.grade}</p>
+                        <p className="text-purple-400 font-medium">{inspection.quality_grade || inspection.grade || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-slate-500">Quality</p>
-                        <p className="text-emerald-400 font-medium">Grade {inspection.qualityScore}</p>
+                        <p className="text-slate-500">Score</p>
+                        <p className="text-emerald-400 font-medium">{inspection.overall_score || inspection.qualityScore || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Remarks</p>
+                        <p className="text-white">{inspection.remarks || '-'}</p>
                       </div>
                     </div>
                   </div>
@@ -349,7 +311,7 @@ const MariInspectorDashboard = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-xl font-bold text-white">Quality Inspection</h2>
-                  <p className="text-slate-400">{selectedHarvest.farmName} - {selectedHarvest.unitName}</p>
+                  <p className="text-slate-400">{selectedHarvest.species} - {selectedHarvest.harvest_code || selectedHarvest.id}</p>
                 </div>
                 <button
                   onClick={() => setShowInspectionModal(false)}
@@ -366,20 +328,20 @@ const MariInspectorDashboard = () => {
                 <h3 className="text-sm font-medium text-slate-400 mb-3">Harvest Details</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-slate-500">Farmer</p>
-                    <p className="text-white">{selectedHarvest.farmerName}</p>
+                    <p className="text-slate-500">Farm ID</p>
+                    <p className="text-white">{selectedHarvest.farm_id || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Quantity</p>
-                    <p className="text-white">{selectedHarvest.quantity}</p>
+                    <p className="text-white">{selectedHarvest.total_quantity_kg ? selectedHarvest.total_quantity_kg + ' kg' : selectedHarvest.quantity}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Species</p>
                     <p className="text-white">{selectedHarvest.species}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">Unit Type</p>
-                    <p className="text-white">{selectedHarvest.unitType}</p>
+                    <p className="text-slate-500">Method</p>
+                    <p className="text-white">{selectedHarvest.method || 'N/A'}</p>
                   </div>
                 </div>
               </div>

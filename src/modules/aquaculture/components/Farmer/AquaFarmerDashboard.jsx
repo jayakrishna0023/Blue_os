@@ -102,6 +102,32 @@ const AquaFarmerDashboard = () => {
     feeding_times: 4
   });
 
+  const tabColorMap = {
+    emerald: 'bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 text-emerald-400 border border-emerald-500/30',
+    blue: 'bg-gradient-to-r from-blue-600/20 to-blue-500/10 text-blue-400 border border-blue-500/30',
+    cyan: 'bg-gradient-to-r from-cyan-600/20 to-cyan-500/10 text-cyan-400 border border-cyan-500/30',
+    amber: 'bg-gradient-to-r from-amber-600/20 to-amber-500/10 text-amber-400 border border-amber-500/30',
+    sky: 'bg-gradient-to-r from-sky-600/20 to-sky-500/10 text-sky-400 border border-sky-500/30',
+    orange: 'bg-gradient-to-r from-orange-600/20 to-orange-500/10 text-orange-400 border border-orange-500/30',
+    purple: 'bg-gradient-to-r from-purple-600/20 to-purple-500/10 text-purple-400 border border-purple-500/30',
+    pink: 'bg-gradient-to-r from-pink-600/20 to-pink-500/10 text-pink-400 border border-pink-500/30',
+  };
+
+  const modalColorMap = {
+    emerald: { header: 'bg-gradient-to-r from-emerald-600/10 to-transparent', icon: 'text-emerald-400' },
+    blue: { header: 'bg-gradient-to-r from-blue-600/10 to-transparent', icon: 'text-blue-400' },
+    cyan: { header: 'bg-gradient-to-r from-cyan-600/10 to-transparent', icon: 'text-cyan-400' },
+    amber: { header: 'bg-gradient-to-r from-amber-600/10 to-transparent', icon: 'text-amber-400' },
+    purple: { header: 'bg-gradient-to-r from-purple-600/10 to-transparent', icon: 'text-purple-400' },
+    orange: { header: 'bg-gradient-to-r from-orange-600/10 to-transparent', icon: 'text-orange-400' },
+  };
+
+  const progressColorMap = {
+    emerald: 'bg-emerald-500',
+    blue: 'bg-blue-500',
+    slate: 'bg-slate-500',
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home, color: 'emerald' },
     { id: 'farms', label: 'My Farms', icon: MapPin, color: 'blue' },
@@ -145,11 +171,13 @@ const AquaFarmerDashboard = () => {
   const loadAllData = async () => {
     try {
       setRefreshing(true);
-      const [farmsRes, pondsRes, harvestsRes, stockingsRes] = await Promise.all([
+      const [farmsRes, pondsRes, harvestsRes, stockingsRes, wqRes, feedRes] = await Promise.all([
         aquaFarmerAPI.getFarms().catch(e => ({ success: false, data: [] })),
         aquaFarmerAPI.getPonds().catch(e => ({ success: false, data: [] })),
         aquaFarmerAPI.getHarvests().catch(e => ({ success: false, data: [] })),
-        aquaFarmerAPI.getStockings().catch(e => ({ success: false, data: [] }))
+        aquaFarmerAPI.getStockings().catch(e => ({ success: false, data: [] })),
+        aquaFarmerAPI.getAllWaterQuality(90).catch(e => ({ success: false, data: [] })),
+        aquaFarmerAPI.getAllFeedHistory(90).catch(e => ({ success: false, data: [] }))
       ]);
 
       console.log('API Responses:', { farmsRes, pondsRes, harvestsRes, stockingsRes });
@@ -158,6 +186,8 @@ const AquaFarmerDashboard = () => {
       if (pondsRes.success) setPonds(pondsRes.data || []);
       if (harvestsRes.success) setHarvests(harvestsRes.data || []);
       if (stockingsRes.success) setStockings(stockingsRes.data || []);
+      if (wqRes.success) setWaterQuality(wqRes.data || []);
+      if (feedRes.success) setFeedRecords(feedRes.data || []);
     } catch (error) {
       console.error('Load data error:', error);
       if (error.response?.status === 401) {
@@ -213,18 +243,24 @@ const AquaFarmerDashboard = () => {
   const handleAddFarm = async (e) => {
     e.preventDefault();
     try {
-      const result = await aquaFarmerAPI.createFarm(farmForm);
+      let result;
+      if (selectedFarm) {
+        result = await aquaFarmerAPI.updateFarm(selectedFarm.id, farmForm);
+      } else {
+        result = await aquaFarmerAPI.createFarm(farmForm);
+      }
       if (result.success) {
-        showToast('Farm added successfully!', 'success');
+        showToast(selectedFarm ? 'Farm updated successfully!' : 'Farm added successfully!', 'success');
         setShowAddFarmModal(false);
+        setSelectedFarm(null);
         setFarmForm({ farm_name: '', address: '', district: '', total_area_acres: '', water_source: '', primary_species: 'Vannamei' });
         await loadAllData();
       } else {
-        showToast(result.error || result.message || 'Failed to add farm', 'error');
+        showToast(result.error || result.message || 'Failed to save farm', 'error');
       }
     } catch (error) {
       console.error('Farm error:', error);
-      showToast(error.response?.data?.message || 'Failed to add farm', 'error');
+      showToast(error.response?.data?.message || 'Failed to save farm', 'error');
     }
   };
 
@@ -364,19 +400,30 @@ const AquaFarmerDashboard = () => {
   const totalHarvestKg = harvests.reduce((sum, h) => sum + (parseFloat(h.total_quantity_kg) || 0), 0);
   const pendingHarvests = harvests.filter(h => h.status === 'pending_inspection').length;
 
+  // Color class mapping for Tailwind production safety
+  const colorMap = {
+    emerald: { bg10: 'bg-emerald-500/10', hoverBg20: 'group-hover:bg-emerald-500/20', from20: 'from-emerald-500/20', to10: 'to-emerald-600/10', border20: 'border-emerald-500/20', text: 'text-emerald-400', hoverShadow: 'hover:shadow-emerald-500/10', hoverBorder: 'hover:border-emerald-500/50', border0: 'border-emerald-500/0', hoverBorder30: 'group-hover:border-emerald-500/30' },
+    blue: { bg10: 'bg-blue-500/10', hoverBg20: 'group-hover:bg-blue-500/20', from20: 'from-blue-500/20', to10: 'to-blue-600/10', border20: 'border-blue-500/20', text: 'text-blue-400', hoverShadow: 'hover:shadow-blue-500/10', hoverBorder: 'hover:border-blue-500/50', border0: 'border-blue-500/0', hoverBorder30: 'group-hover:border-blue-500/30' },
+    amber: { bg10: 'bg-amber-500/10', hoverBg20: 'group-hover:bg-amber-500/20', from20: 'from-amber-500/20', to10: 'to-amber-600/10', border20: 'border-amber-500/20', text: 'text-amber-400', hoverShadow: 'hover:shadow-amber-500/10', hoverBorder: 'hover:border-amber-500/50', border0: 'border-amber-500/0', hoverBorder30: 'group-hover:border-amber-500/30' },
+    purple: { bg10: 'bg-purple-500/10', hoverBg20: 'group-hover:bg-purple-500/20', from20: 'from-purple-500/20', to10: 'to-purple-600/10', border20: 'border-purple-500/20', text: 'text-purple-400', hoverShadow: 'hover:shadow-purple-500/10', hoverBorder: 'hover:border-purple-500/50', border0: 'border-purple-500/0', hoverBorder30: 'group-hover:border-purple-500/30' },
+    cyan: { bg10: 'bg-cyan-500/10', hoverBg20: 'group-hover:bg-cyan-500/20', from20: 'from-cyan-500/20', to10: 'to-cyan-600/10', border20: 'border-cyan-500/20', text: 'text-cyan-400', hoverShadow: 'hover:shadow-cyan-500/10', hoverBorder: 'hover:border-cyan-500/50', border0: 'border-cyan-500/0', hoverBorder30: 'group-hover:border-cyan-500/30' },
+  };
+
   // Animated stat card component
-  const StatCard = ({ icon: Icon, label, value, subValue, color, trend, onClick }) => (
+  const StatCard = ({ icon: Icon, label, value, subValue, color, trend, onClick }) => {
+    const c = colorMap[color] || colorMap.emerald;
+    return (
     <div 
       onClick={onClick}
-      className={`group relative bg-gradient-to-br from-slate-900/80 to-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-${color}-500/10 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`group relative bg-gradient-to-br from-slate-900/80 to-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${c.hoverShadow} ${onClick ? 'cursor-pointer' : ''}`}
     >
       {/* Animated background glow */}
-      <div className={`absolute -top-20 -right-20 w-40 h-40 bg-${color}-500/10 rounded-full blur-3xl group-hover:bg-${color}-500/20 transition-all duration-700`} />
+      <div className={`absolute -top-20 -right-20 w-40 h-40 ${c.bg10} rounded-full blur-3xl ${c.hoverBg20} transition-all duration-700`} />
       
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 bg-gradient-to-br from-${color}-500/20 to-${color}-600/10 rounded-xl border border-${color}-500/20 group-hover:scale-110 transition-transform duration-300`}>
-            <Icon className={`w-6 h-6 text-${color}-400`} />
+          <div className={`p-3 bg-gradient-to-br ${c.from20} ${c.to10} rounded-xl border ${c.border20} group-hover:scale-110 transition-transform duration-300`}>
+            <Icon className={`w-6 h-6 ${c.text}`} />
           </div>
           {trend && (
             <div className={`flex items-center gap-1 text-xs font-medium ${trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -391,9 +438,10 @@ const AquaFarmerDashboard = () => {
       </div>
       
       {/* Hover border effect */}
-      <div className={`absolute inset-0 rounded-2xl border-2 border-${color}-500/0 group-hover:border-${color}-500/30 transition-all duration-500`} />
+      <div className={`absolute inset-0 rounded-2xl border-2 ${c.border0} ${c.hoverBorder30} transition-all duration-500`} />
     </div>
-  );
+    );
+  };
 
   const renderOverview = () => (
     <div className="space-y-8 animate-fadeIn">
@@ -454,18 +502,21 @@ const AquaFarmerDashboard = () => {
           { icon: Fish, label: 'New Stocking', color: 'amber', onClick: () => setShowStockingModal(true) },
           { icon: Droplet, label: 'Log Water Quality', color: 'cyan', onClick: () => setShowWaterQualityModal(true) },
           { icon: Package, label: 'Record Harvest', color: 'emerald', onClick: () => setShowHarvestModal(true) }
-        ].map((action, idx) => (
+        ].map((action, idx) => {
+          const ac = colorMap[action.color] || colorMap.emerald;
+          return (
           <button
             key={idx}
             onClick={action.onClick}
-            className={`group flex flex-col items-center gap-3 p-6 bg-slate-900/50 hover:bg-slate-800/50 border border-slate-800 hover:border-${action.color}-500/50 rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-${action.color}-500/10`}
+            className={`group flex flex-col items-center gap-3 p-6 bg-slate-900/50 hover:bg-slate-800/50 border border-slate-800 ${ac.hoverBorder} rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl ${ac.hoverShadow}`}
           >
-            <div className={`p-4 bg-${action.color}-500/10 group-hover:bg-${action.color}-500/20 rounded-xl transition-colors duration-300`}>
-              <action.icon className={`w-6 h-6 text-${action.color}-400`} />
+            <div className={`p-4 ${ac.bg10} ${ac.hoverBg20} rounded-xl transition-colors duration-300`}>
+              <action.icon className={`w-6 h-6 ${ac.text}`} />
             </div>
             <span className="text-white font-medium">{action.label}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Two Column Layout */}
@@ -699,7 +750,21 @@ const AquaFarmerDashboard = () => {
                       <Eye className="w-4 h-4" />
                       View Ponds
                     </button>
-                    <button className="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors">
+                    <button 
+                      onClick={() => {
+                        setFarmForm({
+                          farm_name: farm.farm_name || '',
+                          address: farm.address || '',
+                          district: farm.district || '',
+                          total_area_acres: farm.total_area_acres || '',
+                          water_source: farm.water_source || '',
+                          primary_species: farm.primary_species || 'Vannamei'
+                        });
+                        setSelectedFarm(farm);
+                        setShowAddFarmModal(true);
+                      }}
+                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
                   </div>
@@ -899,7 +964,13 @@ const AquaFarmerDashboard = () => {
                     >
                       <Droplet className="w-4 h-4" />
                     </button>
-                    <button className="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors">
+                    <button 
+                      onClick={() => {
+                        setSelectedPond(pond);
+                        showToast(`Viewing ${pond.pond_name}: ${pond.area_acres} acres, ${pond.pond_type}, Status: ${pond.status}`, 'info');
+                      }}
+                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
                   </div>
@@ -1006,10 +1077,16 @@ const AquaFarmerDashboard = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
-                        <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => showToast(`Harvest ${harvest.harvest_code || `H-${harvest.id}`}: ${harvest.total_quantity_kg}kg, ${harvest.method?.replace('_',' ')}, Status: ${harvest.status?.replace('_',' ')}`, 'info')}
+                          className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                        >
                           <Eye className="w-4 h-4 text-slate-400" />
                         </button>
-                        <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => showToast(`QR Code: ${harvest.harvest_code || `HARVEST-${harvest.id}`}`, 'info')}
+                          className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                        >
                           <QrCode className="w-4 h-4 text-slate-400" />
                         </button>
                       </div>
@@ -1136,7 +1213,7 @@ const AquaFarmerDashboard = () => {
                 </div>
                 <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
                   <div 
-                    className={`h-full bg-${item.color}-500 rounded-full transition-all duration-1000`}
+                    className={`h-full ${progressColorMap[item.color] || 'bg-slate-500'} rounded-full transition-all duration-1000`}
                     style={{ width: `${item.pct}%` }}
                   />
                 </div>
@@ -1157,9 +1234,9 @@ const AquaFarmerDashboard = () => {
           className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl animate-slideUp"
           onClick={e => e.stopPropagation()}
         >
-          <div className={`flex items-center justify-between p-6 border-b border-slate-800 bg-gradient-to-r from-${color}-600/10 to-transparent`}>
+          <div className={`flex items-center justify-between p-6 border-b border-slate-800 ${(modalColorMap[color] || modalColorMap.emerald).header}`}>
             <div className="flex items-center gap-3">
-              {Icon && <Icon className={`w-6 h-6 text-${color}-400`} />}
+              {Icon && <Icon className={`w-6 h-6 ${(modalColorMap[color] || modalColorMap.emerald).icon}`} />}
               <h3 className="text-xl font-bold text-white">{title}</h3>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
@@ -1250,7 +1327,7 @@ const AquaFarmerDashboard = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-xl transition-all duration-300 ${
                     activeTab === tab.id
-                      ? `bg-gradient-to-r from-${tab.color}-600/20 to-${tab.color}-500/10 text-${tab.color}-400 border border-${tab.color}-500/30`
+                      ? tabColorMap[tab.color] || tabColorMap.emerald
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                   }`}
                 >
@@ -1271,39 +1348,271 @@ const AquaFarmerDashboard = () => {
         {activeTab === 'harvests' && renderHarvests()}
         {activeTab === 'analytics' && renderAnalytics()}
         {activeTab === 'stockings' && (
-          <div className="text-center py-20">
-            <Fish className="w-20 h-20 text-slate-700 mx-auto mb-6" />
-            <h3 className="text-xl font-bold text-white mb-2">Stocking Management</h3>
-            <p className="text-slate-400 mb-6">Manage your seed stocking records</p>
-            <button onClick={() => setShowStockingModal(true)} className="px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium">
-              Add New Stocking
-            </button>
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Stocking Records</h2>
+                <p className="text-slate-400">Manage seed stocking across your ponds</p>
+              </div>
+              <button onClick={() => setShowStockingModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl font-medium transition-all hover:scale-105">
+                <Plus className="w-5 h-5" />
+                Add Stocking
+              </button>
+            </div>
+
+            {/* Stocking Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 text-center">
+                <Fish className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{stockings.length}</p>
+                <p className="text-sm text-slate-400">Total Stockings</p>
+              </div>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 text-center">
+                <Activity className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{stockings.filter(s => s.status === 'active').length}</p>
+                <p className="text-sm text-slate-400">Active Stockings</p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 text-center">
+                <Scale className="w-8 h-8 text-blue-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{stockings.reduce((sum, s) => sum + (parseInt(s.quantity) || 0), 0).toLocaleString()}</p>
+                <p className="text-sm text-slate-400">Total Seed Count</p>
+              </div>
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-5 text-center">
+                <Target className="w-8 h-8 text-purple-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{stockings.filter(s => s.status === 'harvested').length}</p>
+                <p className="text-sm text-slate-400">Harvested</p>
+              </div>
+            </div>
+
+            {/* Stocking List */}
+            {stockings.length > 0 ? (
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-800/50">
+                      <tr>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Pond</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Species</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Quantity</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Date</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Hatchery</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stockings.map((stocking, idx) => {
+                        const pond = ponds.find(p => p.id === stocking.pond_id);
+                        return (
+                          <tr key={stocking.id || idx} className="border-t border-slate-800 hover:bg-slate-800/50 transition-colors">
+                            <td className="px-6 py-4 text-white font-medium">{pond?.pond_name || `Pond ${stocking.pond_id}`}</td>
+                            <td className="px-6 py-4 text-slate-400 capitalize">{stocking.species || 'Vannamei'}</td>
+                            <td className="px-6 py-4 text-white font-bold">{parseInt(stocking.quantity || 0).toLocaleString()}</td>
+                            <td className="px-6 py-4 text-slate-400">{stocking.stocking_date ? new Date(stocking.stocking_date).toLocaleDateString() : 'N/A'}</td>
+                            <td className="px-6 py-4 text-slate-400">{stocking.hatchery_name || '-'}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(stocking.status)}`}>
+                                {stocking.status || 'pending'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                <Fish className="w-20 h-20 text-slate-700 mx-auto mb-6" />
+                <h3 className="text-xl font-bold text-white mb-2">No Stocking Records</h3>
+                <p className="text-slate-400 mb-6">Add your first seed stocking to get started</p>
+                <button onClick={() => setShowStockingModal(true)} className="px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium hover:scale-105 transition-all">
+                  Add First Stocking
+                </button>
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'water-quality' && (
-          <div className="text-center py-20">
-            <Droplet className="w-20 h-20 text-slate-700 mx-auto mb-6" />
-            <h3 className="text-xl font-bold text-white mb-2">Water Quality Monitoring</h3>
-            <p className="text-slate-400 mb-6">Track water parameters for optimal growth</p>
-            <button onClick={() => setShowWaterQualityModal(true)} className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-medium">
-              Log Water Quality
-            </button>
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Water Quality Monitoring</h2>
+                <p className="text-slate-400">Track water parameters for optimal growth conditions</p>
+              </div>
+              <button onClick={() => setShowWaterQualityModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-medium transition-all hover:scale-105">
+                <Plus className="w-5 h-5" />
+                Log Water Quality
+              </button>
+            </div>
+
+            {/* Parameter Cards */}
+            {waterQuality.length > 0 && (() => {
+              const latest = waterQuality[0];
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center">
+                    <Thermometer className="w-6 h-6 text-red-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.temperature_c || '-'}°C</p>
+                    <p className="text-xs text-slate-400">Temperature</p>
+                  </div>
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 text-center">
+                    <Beaker className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.ph || '-'}</p>
+                    <p className="text-xs text-slate-400">pH Level</p>
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
+                    <Wind className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.dissolved_oxygen || '-'}</p>
+                    <p className="text-xs text-slate-400">DO (mg/L)</p>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
+                    <AlertCircle className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.ammonia_ppm || '-'}</p>
+                    <p className="text-xs text-slate-400">Ammonia (ppm)</p>
+                  </div>
+                  <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 text-center">
+                    <Droplets className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.salinity_ppt || '-'}</p>
+                    <p className="text-xs text-slate-400">Salinity (ppt)</p>
+                  </div>
+                  <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 text-center">
+                    <Eye className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                    <p className="text-xl font-bold text-white">{latest.transparency_cm || '-'}</p>
+                    <p className="text-xs text-slate-400">Transparency (cm)</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* WQ History Table */}
+            {waterQuality.length > 0 ? (
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-800/50">
+                      <tr>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Pond</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Date</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Temp °C</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">pH</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">DO</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">NH₃</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Salinity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {waterQuality.map((wq, idx) => {
+                        const pond = ponds.find(p => p.id === wq.pond_id);
+                        return (
+                          <tr key={wq.id || idx} className="border-t border-slate-800 hover:bg-slate-800/50 transition-colors">
+                            <td className="px-6 py-4 text-white font-medium">{pond?.pond_name || `Pond ${wq.pond_id}`}</td>
+                            <td className="px-6 py-4 text-slate-400">{wq.recorded_date ? new Date(wq.recorded_date).toLocaleDateString() : 'N/A'}</td>
+                            <td className="px-6 py-4"><span className={`font-bold ${parseFloat(wq.temperature_c) > 32 || parseFloat(wq.temperature_c) < 26 ? 'text-red-400' : 'text-emerald-400'}`}>{wq.temperature_c || '-'}</span></td>
+                            <td className="px-6 py-4"><span className={`font-bold ${parseFloat(wq.ph) > 8.5 || parseFloat(wq.ph) < 7 ? 'text-red-400' : 'text-emerald-400'}`}>{wq.ph || '-'}</span></td>
+                            <td className="px-6 py-4"><span className={`font-bold ${parseFloat(wq.dissolved_oxygen) < 4 ? 'text-red-400' : 'text-emerald-400'}`}>{wq.dissolved_oxygen || '-'}</span></td>
+                            <td className="px-6 py-4"><span className={`font-bold ${parseFloat(wq.ammonia_ppm) > 0.1 ? 'text-red-400' : 'text-emerald-400'}`}>{wq.ammonia_ppm || '-'}</span></td>
+                            <td className="px-6 py-4 text-slate-400">{wq.salinity_ppt || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                <Droplet className="w-20 h-20 text-slate-700 mx-auto mb-6" />
+                <h3 className="text-xl font-bold text-white mb-2">No Water Quality Data</h3>
+                <p className="text-slate-400 mb-6">Start monitoring water parameters for your ponds</p>
+                <button onClick={() => setShowWaterQualityModal(true)} className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-medium hover:scale-105 transition-all">
+                  Log First Reading
+                </button>
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'feed' && (
-          <div className="text-center py-20">
-            <Package className="w-20 h-20 text-slate-700 mx-auto mb-6" />
-            <h3 className="text-xl font-bold text-white mb-2">Feed Management</h3>
-            <p className="text-slate-400 mb-6">Track feeding schedules and consumption</p>
-            <button onClick={() => setShowFeedModal(true)} className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl font-medium">
-              Record Feeding
-            </button>
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Feed Management</h2>
+                <p className="text-slate-400">Track feeding schedules, types, and consumption</p>
+              </div>
+              <button onClick={() => setShowFeedModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-xl font-medium transition-all hover:scale-105">
+                <Plus className="w-5 h-5" />
+                Record Feeding
+              </button>
+            </div>
+
+            {/* Feed Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-5 text-center">
+                <Package className="w-8 h-8 text-orange-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{feedRecords.length}</p>
+                <p className="text-sm text-slate-400">Total Records</p>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 text-center">
+                <Scale className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{feedRecords.reduce((sum, f) => sum + (parseFloat(f.quantity_kg) || 0), 0).toFixed(1)}</p>
+                <p className="text-sm text-slate-400">Total Feed (kg)</p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 text-center">
+                <Calendar className="w-8 h-8 text-blue-400 mx-auto mb-3" />
+                <p className="text-3xl font-bold text-white">{feedRecords.length > 0 ? Math.round(feedRecords.reduce((sum, f) => sum + (parseInt(f.feeding_times) || 0), 0) / feedRecords.length) : 0}</p>
+                <p className="text-sm text-slate-400">Avg Feeds/Day</p>
+              </div>
+            </div>
+
+            {/* Feed Records Table */}
+            {feedRecords.length > 0 ? (
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-800/50">
+                      <tr>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Pond</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Date</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Feed Type</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Brand</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Qty (kg)</th>
+                        <th className="text-left text-sm font-semibold text-slate-300 px-6 py-4">Times/Day</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedRecords.map((feed, idx) => {
+                        const pond = ponds.find(p => p.id === feed.pond_id);
+                        return (
+                          <tr key={feed.id || idx} className="border-t border-slate-800 hover:bg-slate-800/50 transition-colors">
+                            <td className="px-6 py-4 text-white font-medium">{pond?.pond_name || `Pond ${feed.pond_id}`}</td>
+                            <td className="px-6 py-4 text-slate-400">{feed.feed_date ? new Date(feed.feed_date).toLocaleDateString() : 'N/A'}</td>
+                            <td className="px-6 py-4 text-white capitalize">{feed.feed_type || '-'}</td>
+                            <td className="px-6 py-4 text-slate-400">{feed.brand || '-'}</td>
+                            <td className="px-6 py-4 text-amber-400 font-bold">{feed.quantity_kg}</td>
+                            <td className="px-6 py-4 text-slate-400">{feed.feeding_times || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                <Package className="w-20 h-20 text-slate-700 mx-auto mb-6" />
+                <h3 className="text-xl font-bold text-white mb-2">No Feed Records</h3>
+                <p className="text-slate-400 mb-6">Start recording feed consumption for your ponds</p>
+                <button onClick={() => setShowFeedModal(true)} className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl font-medium hover:scale-105 transition-all">
+                  Record First Feeding
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
 
       {/* Modals */}
-      <Modal show={showAddFarmModal} onClose={() => setShowAddFarmModal(false)} title="Add New Farm" icon={MapPin} color="emerald">
+      <Modal show={showAddFarmModal} onClose={() => { setShowAddFarmModal(false); setSelectedFarm(null); setFarmForm({ farm_name: '', address: '', district: '', total_area_acres: '', water_source: '', primary_species: 'Vannamei' }); }} title={selectedFarm ? 'Edit Farm' : 'Add New Farm'} icon={MapPin} color="emerald">
         <form onSubmit={handleAddFarm} className="space-y-4">
           <div>
             <label className={labelClass}>Farm Name *</label>
@@ -1344,7 +1653,7 @@ const AquaFarmerDashboard = () => {
               </select>
             </div>
           </div>
-          <button type="submit" className={buttonClass}>Add Farm</button>
+          <button type="submit" className={buttonClass}>{selectedFarm ? 'Update Farm' : 'Add Farm'}</button>
         </form>
       </Modal>
 

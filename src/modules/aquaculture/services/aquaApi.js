@@ -159,6 +159,11 @@ export const aquaFarmerAPI = {
     return response.data;
   },
 
+  getAllWaterQuality: async (days = 90) => {
+    const response = await aquaApi.get(`/farmer/water-quality-all?days=${days}`);
+    return response.data;
+  },
+
   // Feed Records
   recordFeed: async (feedData) => {
     const response = await aquaApi.post('/farmer/feed', feedData);
@@ -167,6 +172,11 @@ export const aquaFarmerAPI = {
 
   getFeedHistory: async (pondId, days = 30) => {
     const response = await aquaApi.get(`/farmer/feed/${pondId}?days=${days}`);
+    return response.data;
+  },
+
+  getAllFeedHistory: async (days = 90) => {
+    const response = await aquaApi.get(`/farmer/feed-all?days=${days}`);
     return response.data;
   },
 

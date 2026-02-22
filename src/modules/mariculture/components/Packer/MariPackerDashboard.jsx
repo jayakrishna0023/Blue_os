@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LogOut, Package, Shell, Search, Eye, QrCode, CheckCircle, 
@@ -7,108 +7,68 @@ import {
 import { useLanguage } from '../../../shared/context/LanguageContext';
 import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
 import Toast from '../../../shared/components/Shared/Toast';
+import { mariAuthAPI, mariPackerAPI } from '../../services/mariApi';
 
 const MariPackerDashboard = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState('ready');
   const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedHarvest, setSelectedHarvest] = useState(null);
   const [showPackingModal, setShowPackingModal] = useState(false);
   const [showCrateQR, setShowCrateQR] = useState(null);
 
-  // Demo packer data
-  const [packerData] = useState({
-    id: 'PKR-MR-001',
-    name: 'Kannan Perumal',
-    designation: 'Crate Packer',
-    packingCenter: 'Mandapam Packing Center',
-    cratesPacked: 67,
-    todaysCrates: 8
+  // Real data state
+  const [packerData, setPackerData] = useState({
+    id: '', name: '', designation: 'Crate Packer', packingCenter: 'Packing Center',
+    cratesPacked: 0, todaysCrates: 0
   });
-
-  // Demo ready for packing (inspected harvests)
-  const [readyForPacking] = useState([
-    {
-      id: 'MH002',
-      farmerId: 'MF-001',
-      farmerName: 'Selvam Murugan',
-      farmName: 'Blue Lagoon Farm',
-      unitName: 'Cage Alpha',
-      unitType: 'Sea Cage',
-      harvestDate: '2024-12-08',
-      quantity: '450 kg',
-      species: 'Asian Seabass',
-      grade: 'Premium',
-      qualityScore: 'A',
-      inspectorName: 'Murugan Selvam',
-      inspectionDate: '2024-12-08'
-    },
-    {
-      id: 'MH003',
-      farmerId: 'MF-001',
-      farmerName: 'Selvam Murugan',
-      farmName: 'Coastal Seaweed Farm',
-      unitName: 'Longline L2',
-      unitType: 'Longline',
-      harvestDate: '2024-12-05',
-      quantity: '680 kg',
-      species: 'Kappaphycus alvarezii',
-      grade: 'Grade A',
-      qualityScore: 'A',
-      inspectorName: 'Murugan Selvam',
-      inspectionDate: '2024-12-05'
-    }
-  ]);
-
-  // Demo packed crates
-  const [packedCrates, setPackedCrates] = useState([
-    {
-      id: 'N-M-2024120801',
-      harvestId: 'MH002',
-      farmName: 'Blue Lagoon Farm',
-      species: 'Asian Seabass',
-      weight: '30 kg',
-      grade: 'Premium',
-      qualityScore: 'A',
-      packedDate: '2024-12-09',
-      packedTime: '08:30 AM',
-      status: 'active'
-    },
-    {
-      id: 'N-M-2024120802',
-      harvestId: 'MH002',
-      farmName: 'Blue Lagoon Farm',
-      species: 'Asian Seabass',
-      weight: '30 kg',
-      grade: 'Premium',
-      qualityScore: 'A',
-      packedDate: '2024-12-09',
-      packedTime: '08:45 AM',
-      status: 'active'
-    },
-    {
-      id: 'N-M-2024120803',
-      harvestId: 'MH003',
-      farmName: 'Coastal Seaweed Farm',
-      species: 'Kappaphycus alvarezii',
-      weight: '50 kg',
-      grade: 'Grade A',
-      qualityScore: 'A',
-      packedDate: '2024-12-09',
-      packedTime: '09:15 AM',
-      status: 'active'
-    }
-  ]);
+  const [readyForPacking, setReadyForPacking] = useState([]);
+  const [packedCrates, setPackedCrates] = useState([]);
 
   // Packing form state
   const [packingForm, setPackingForm] = useState({
-    weight: '',
-    numberOfCrates: 1,
-    notes: ''
+    weight: '', numberOfCrates: 1, notes: ''
   });
 
+  // Auth check + initial load
+  useEffect(() => {
+    if (!mariAuthAPI.isAuthenticated()) {
+      navigate('/mariculture/login/packer');
+      return;
+    }
+    const user = mariAuthAPI.getCurrentUser();
+    if (user) {
+      setPackerData(prev => ({ ...prev, id: user.id, name: user.name || user.username }));
+    }
+    loadAllData();
+  }, []);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [readyRes, cratesRes, statsRes] = await Promise.all([
+        mariPackerAPI.getApprovedHarvests().catch(() => ({ data: { data: [] } })),
+        mariPackerAPI.getCrates().catch(() => ({ data: { data: [] } })),
+        mariPackerAPI.getDashboardStats().catch(() => ({ data: { stats: {} } }))
+      ]);
+      setReadyForPacking(readyRes.data?.data || []);
+      setPackedCrates(cratesRes.data?.data || []);
+      const stats = statsRes.data?.stats || {};
+      setPackerData(prev => ({
+        ...prev,
+        cratesPacked: stats.packedCrates || cratesRes.data?.data?.length || 0,
+        todaysCrates: (cratesRes.data?.data || []).filter(c => c.packing_date?.startsWith(new Date().toISOString().split('T')[0])).length
+      }));
+    } catch (err) {
+      console.error('Load data error:', err);
+    }
+    setLoading(false);
+  };
+
   const handleLogout = () => {
+    mariAuthAPI.logout();
     navigate('/mariculture');
   };
 
@@ -124,28 +84,25 @@ const MariPackerDashboard = () => {
     return `N-M-${dateStr}${sequence}`;
   };
 
-  const handleCreateCrates = () => {
-    const newCrates = [];
-    for (let i = 0; i < packingForm.numberOfCrates; i++) {
-      newCrates.push({
-        id: generateCrateCode(),
-        harvestId: selectedHarvest.id,
-        farmName: selectedHarvest.farmName,
-        species: selectedHarvest.species,
-        weight: `${packingForm.weight} kg`,
-        grade: selectedHarvest.grade,
-        qualityScore: selectedHarvest.qualityScore,
-        packedDate: new Date().toISOString().slice(0, 10),
-        packedTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        status: 'active'
-      });
+  const handleCreateCrates = async () => {
+    try {
+      for (let i = 0; i < packingForm.numberOfCrates; i++) {
+        await mariPackerAPI.packCrate({
+          harvest_id: selectedHarvest.id,
+          species: selectedHarvest.species,
+          weight_kg: parseFloat(packingForm.weight) || 0,
+          grade: selectedHarvest.grade || 'A',
+          notes: packingForm.notes
+        });
+      }
+      setToast({ message: `${packingForm.numberOfCrates} crate(s) created successfully!`, type: 'success' });
+      setShowPackingModal(false);
+      setSelectedHarvest(null);
+      setPackingForm({ weight: '', numberOfCrates: 1, notes: '' });
+      loadAllData();
+    } catch (err) {
+      setToast({ message: 'Failed to create crates: ' + (err.response?.data?.message || err.message), type: 'error' });
     }
-    
-    setPackedCrates([...packedCrates, ...newCrates]);
-    setToast({ message: `${packingForm.numberOfCrates} crate(s) created successfully!`, type: 'success' });
-    setShowPackingModal(false);
-    setSelectedHarvest(null);
-    setPackingForm({ weight: '', numberOfCrates: 1, notes: '' });
   };
 
   const isSeaweed = (species) => {
@@ -246,17 +203,14 @@ const MariPackerDashboard = () => {
                         Inspected & Approved
                       </span>
                       <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">
-                        {harvest.unitType}
-                      </span>
-                      <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs">
-                        Grade {harvest.qualityScore}
+                        {harvest.method || 'harvest'}
                       </span>
                     </div>
                     <h4 className="text-lg font-semibold text-white mb-1">
-                      {harvest.farmName} - {harvest.unitName}
+                      {harvest.species} - {harvest.harvest_code || harvest.id}
                     </h4>
                     <p className="text-slate-400 text-sm mb-3">
-                      Farmer: {harvest.farmerName} • Inspector: {harvest.inspectorName}
+                      Farm ID: {harvest.farm_id || 'N/A'}
                     </p>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -266,15 +220,11 @@ const MariPackerDashboard = () => {
                       </div>
                       <div>
                         <p className="text-slate-500">Quantity</p>
-                        <p className="text-white">{harvest.quantity}</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-500">Grade</p>
-                        <p className="text-purple-400 font-medium">{harvest.grade}</p>
+                        <p className="text-white">{harvest.total_quantity_kg ? harvest.total_quantity_kg + ' kg' : harvest.quantity}</p>
                       </div>
                       <div>
                         <p className="text-slate-500">Harvest Date</p>
-                        <p className="text-white">{harvest.harvestDate}</p>
+                        <p className="text-white">{harvest.harvest_date || harvest.harvestDate}</p>
                       </div>
                     </div>
                   </div>
@@ -323,7 +273,7 @@ const MariPackerDashboard = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Crate Code</p>
-                      <p className="text-lg font-mono font-bold text-purple-400">{crate.id}</p>
+                      <p className="text-lg font-mono font-bold text-purple-400">{crate.crate_code || crate.id}</p>
                     </div>
                     <button
                       onClick={() => setShowCrateQR(crate)}
@@ -335,28 +285,24 @@ const MariPackerDashboard = () => {
 
                   <div className="space-y-2 text-sm mb-4">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Farm</span>
-                      <span className="text-white">{crate.farmName}</span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-slate-400">Species</span>
-                      <span className="text-white">{crate.species}</span>
+                      <span className="text-white">{crate.species || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Weight</span>
-                      <span className="text-white">{crate.weight}</span>
+                      <span className="text-white">{crate.weight_kg ? crate.weight_kg + ' kg' : crate.weight || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Grade</span>
-                      <span className="text-purple-400">{crate.grade}</span>
+                      <span className="text-purple-400">{crate.grade || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Quality</span>
-                      <span className="text-emerald-400">Grade {crate.qualityScore}</span>
+                      <span className="text-slate-400">Status</span>
+                      <span className={`${crate.status === 'dispatched' ? 'text-emerald-400' : 'text-blue-400'}`}>{crate.status}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Packed</span>
-                      <span className="text-white">{crate.packedDate} {crate.packedTime}</span>
+                      <span className="text-white">{crate.packing_date ? new Date(crate.packing_date).toLocaleDateString() : crate.packedDate}</span>
                     </div>
                   </div>
 
@@ -387,7 +333,7 @@ const MariPackerDashboard = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-xl font-bold text-white">Create Crates</h2>
-                  <p className="text-slate-400">{selectedHarvest.farmName} - {selectedHarvest.unitName}</p>
+                  <p className="text-slate-400">{selectedHarvest.species} - {selectedHarvest.harvest_code || selectedHarvest.id}</p>
                 </div>
                 <button
                   onClick={() => setShowPackingModal(false)}
@@ -408,15 +354,15 @@ const MariPackerDashboard = () => {
                   </div>
                   <div>
                     <p className="text-slate-500">Total Quantity</p>
-                    <p className="text-white">{selectedHarvest.quantity}</p>
+                    <p className="text-white">{selectedHarvest.total_quantity_kg ? selectedHarvest.total_quantity_kg + ' kg' : selectedHarvest.quantity}</p>
                   </div>
                   <div>
                     <p className="text-slate-500">Grade</p>
-                    <p className="text-purple-400">{selectedHarvest.grade}</p>
+                    <p className="text-purple-400">{selectedHarvest.grade || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500">Quality</p>
-                    <p className="text-emerald-400">Grade {selectedHarvest.qualityScore}</p>
+                    <p className="text-slate-500">Method</p>
+                    <p className="text-white">{selectedHarvest.method || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -485,13 +431,17 @@ const MariPackerDashboard = () => {
             </button>
             
             <div className="bg-white rounded-xl p-6 mb-4 inline-block">
-              <div className="w-48 h-48 bg-slate-200 flex items-center justify-center">
-                <QrCode className="w-32 h-32 text-slate-800" />
-              </div>
+              {showCrateQR.qr_image_url ? (
+                <img src={showCrateQR.qr_image_url} alt="QR Code" className="w-48 h-48" />
+              ) : (
+                <div className="w-48 h-48 bg-slate-200 flex items-center justify-center">
+                  <QrCode className="w-32 h-32 text-slate-800" />
+                </div>
+              )}
             </div>
             
-            <p className="text-2xl font-mono font-bold text-purple-400 mb-2">{showCrateQR.id}</p>
-            <p className="text-slate-400 mb-4">{showCrateQR.species} • {showCrateQR.weight} • {showCrateQR.grade}</p>
+            <p className="text-2xl font-mono font-bold text-purple-400 mb-2">{showCrateQR.crate_code || showCrateQR.id}</p>
+            <p className="text-slate-400 mb-4">{showCrateQR.species} • {showCrateQR.weight_kg ? showCrateQR.weight_kg + ' kg' : showCrateQR.weight} • {showCrateQR.grade}</p>
             
             <div className="flex gap-2">
               <button

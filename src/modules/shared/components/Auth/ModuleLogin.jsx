@@ -19,20 +19,6 @@ const ModuleLogin = () => {
     password: ''
   });
 
-  // Demo credentials for each module and role
-  const demoCredentials = {
-    aquaculture: {
-      farmer: { username: 'aqua_farmer', password: 'farmer123' },
-      inspector: { username: 'aqua_inspector', password: 'inspector123' },
-      packer: { username: 'aqua_packer', password: 'packer123' }
-    },
-    mariculture: {
-      farmer: { username: 'mari_farmer', password: 'farmer123' },
-      inspector: { username: 'mari_inspector', password: 'inspector123' },
-      packer: { username: 'mari_packer', password: 'packer123' }
-    }
-  };
-
   // Module configuration
   const moduleConfig = {
     aquaculture: {
@@ -60,7 +46,6 @@ const ModuleLogin = () => {
 
   const currentModule = moduleConfig[module] || moduleConfig.aquaculture;
   const currentRole = roleConfig[role] || roleConfig.farmer;
-  const demoCreds = demoCredentials[module]?.[role] || {};
   const IconComponent = currentModule.icon;
 
   const handleChange = (e) => {
@@ -91,33 +76,10 @@ const ModuleLogin = () => {
       }
     } catch (error) {
       console.error('Module Login Error:', error);
-      // Fallback to demo credentials for development
-      if (credentials.username === demoCreds.username && credentials.password === demoCreds.password) {
-        // Store user info for demo mode
-        const demoUser = {
-          id: `${module}_${role}_demo`,
-          username: credentials.username,
-          role: role,
-          module: module
-        };
-        sessionStorage.setItem('user', JSON.stringify(demoUser));
-        setToast({ message: 'Login successful! (Demo Mode)', type: 'success' });
-        setTimeout(() => {
-          navigate(`/${module}/${role}/dashboard`);
-        }, 500);
-      } else {
-        setToast({ message: 'Invalid credentials. Please try again.', type: 'error' });
-      }
+      setToast({ message: 'Login failed. Please check your connection and try again.', type: 'error' });
     }
     
     setLoading(false);
-  };
-
-  const fillDemoCredentials = () => {
-    setCredentials({
-      username: demoCreds.username || '',
-      password: demoCreds.password || ''
-    });
   };
 
   return (
@@ -217,21 +179,6 @@ const ModuleLogin = () => {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-sm text-slate-400">Demo Credentials</p>
-              <button
-                onClick={fillDemoCredentials}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Auto Fill
-              </button>
-            </div>
-            <p className="text-sm font-mono text-slate-300">
-              {demoCreds.username} / {demoCreds.password}
-            </p>
-          </div>
         </div>
       </div>
 

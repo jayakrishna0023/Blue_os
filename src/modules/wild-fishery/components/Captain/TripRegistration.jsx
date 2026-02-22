@@ -156,10 +156,9 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
-    // Validation: Ensure images are captured
+    // Validation: Ensure images are captured (before setLoading to avoid stuck state)
     if (!formData.vesselImage) {
         setError('Vessel image is required. Please capture a photo.');
         return;
@@ -168,6 +167,8 @@ const TripRegistration = ({ onTripCreated, existingTrip }) => {
         setError('Gear image is required. Please capture a photo.');
         return;
     }
+
+    setLoading(true);
 
     try {
       const user = getCurrentUser();

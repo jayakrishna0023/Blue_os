@@ -31,6 +31,21 @@ const AquaInspectorDashboard = () => {
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Farm Audit states
+  const [auditFarms, setAuditFarms] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [selectedAuditFarm, setSelectedAuditFarm] = useState(null);
+  const [auditForm, setAuditForm] = useState({
+    overall_score: '',
+    water_management: '',
+    feed_management: '',
+    biosecurity: '',
+    record_keeping: '',
+    remarks: '',
+    decision: 'pass'
+  });
+
   // Inspection form state
   const [inspectionForm, setInspectionForm] = useState({
     water_temp_c: '',
@@ -48,6 +63,7 @@ const AquaInspectorDashboard = () => {
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'pending', label: 'Pending', icon: Clock },
     { id: 'completed', label: 'Completed', icon: CheckCircle },
+    { id: 'farm-audit', label: 'Farm Audit', icon: Shield },
   ];
 
   // Check auth and load data on mount
@@ -78,6 +94,13 @@ const AquaInspectorDashboard = () => {
 
     initDashboard();
   }, [navigate]);
+
+  // Load farm audit data when tab switches to farm-audit
+  useEffect(() => {
+    if (activeTab === 'farm-audit' && auditFarms.length === 0 && !auditLoading) {
+      loadAuditFarms();
+    }
+  }, [activeTab]);
 
   const loadAllData = async () => {
     try {
@@ -209,16 +232,25 @@ const AquaInspectorDashboard = () => {
     );
   }
 
-  const StatCard = ({ icon: Icon, label, value, subValue, color, onClick }) => (
+  const colorMap = {
+    emerald: { bg10: 'bg-emerald-500/10', hoverBg20: 'group-hover:bg-emerald-500/20', from20: 'from-emerald-500/20', to10: 'to-emerald-600/10', border20: 'border-emerald-500/20', text: 'text-emerald-400' },
+    blue: { bg10: 'bg-blue-500/10', hoverBg20: 'group-hover:bg-blue-500/20', from20: 'from-blue-500/20', to10: 'to-blue-600/10', border20: 'border-blue-500/20', text: 'text-blue-400' },
+    amber: { bg10: 'bg-amber-500/10', hoverBg20: 'group-hover:bg-amber-500/20', from20: 'from-amber-500/20', to10: 'to-amber-600/10', border20: 'border-amber-500/20', text: 'text-amber-400' },
+    red: { bg10: 'bg-red-500/10', hoverBg20: 'group-hover:bg-red-500/20', from20: 'from-red-500/20', to10: 'to-red-600/10', border20: 'border-red-500/20', text: 'text-red-400' },
+  };
+
+  const StatCard = ({ icon: Icon, label, value, subValue, color, onClick }) => {
+    const c = colorMap[color] || colorMap.emerald;
+    return (
     <div 
       onClick={onClick}
       className={`group relative bg-gradient-to-br from-slate-900/80 to-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${onClick ? 'cursor-pointer' : ''}`}
     >
-      <div className={`absolute -top-20 -right-20 w-40 h-40 bg-${color}-500/10 rounded-full blur-3xl group-hover:bg-${color}-500/20 transition-all duration-700`} />
+      <div className={`absolute -top-20 -right-20 w-40 h-40 ${c.bg10} rounded-full blur-3xl ${c.hoverBg20} transition-all duration-700`} />
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 bg-gradient-to-br from-${color}-500/20 to-${color}-600/10 rounded-xl border border-${color}-500/20 group-hover:scale-110 transition-transform duration-300`}>
-            <Icon className={`w-6 h-6 text-${color}-400`} />
+          <div className={`p-3 bg-gradient-to-br ${c.from20} ${c.to10} rounded-xl border ${c.border20} group-hover:scale-110 transition-transform duration-300`}>
+            <Icon className={`w-6 h-6 ${c.text}`} />
           </div>
         </div>
         <p className="text-3xl font-bold text-white mb-1 tracking-tight">{value}</p>
@@ -226,7 +258,8 @@ const AquaInspectorDashboard = () => {
         {subValue && <p className="text-xs text-slate-500 mt-1">{subValue}</p>}
       </div>
     </div>
-  );
+    );
+  };
 
   const renderOverview = () => (
     <div className="space-y-8 animate-fadeIn">
@@ -529,6 +562,113 @@ const AquaInspectorDashboard = () => {
     </div>
   );
 
+  // Farm Audit Functions
+  const loadAuditFarms = async () => {
+    setAuditLoading(true);
+    try {
+      const result = await aquaInspectorAPI.getFarmsForAudit();
+      if (result.success) {
+        setAuditFarms(result.data || result.farms || []);
+      }
+    } catch (error) {
+      console.error('Failed to load audit farms:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const handleSubmitAudit = async (e) => {
+    e.preventDefault();
+    if (!selectedAuditFarm) return;
+    setSubmitting(true);
+    try {
+      const result = await aquaInspectorAPI.submitFarmAudit({
+        farm_id: selectedAuditFarm.id,
+        ...auditForm
+      });
+      if (result.success) {
+        showToast(`Farm audit ${auditForm.decision === 'pass' ? 'passed' : 'failed'} for ${selectedAuditFarm.farm_name}`, 'success');
+        setShowAuditModal(false);
+        setSelectedAuditFarm(null);
+        setAuditForm({ overall_score: '', water_management: '', feed_management: '', biosecurity: '', record_keeping: '', remarks: '', decision: 'pass' });
+        loadAuditFarms();
+      } else {
+        showToast(result.error || 'Failed to submit audit', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to submit farm audit', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderFarmAudit = () => {
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Farm Audit</h2>
+            <p className="text-slate-400">Audit registered aquaculture farms for compliance</p>
+          </div>
+          <button onClick={loadAuditFarms} disabled={auditLoading} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${auditLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {auditLoading ? (
+          <div className="text-center py-20">
+            <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Loading farms...</p>
+          </div>
+        ) : auditFarms.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {auditFarms.map(farm => (
+              <div key={farm.id} className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 hover:border-blue-500/30 transition-all">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{farm.farm_name}</h3>
+                    <p className="text-sm text-slate-400 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {farm.district || farm.address || 'No location'}
+                    </p>
+                  </div>
+                  <Shield className="w-8 h-8 text-blue-400" />
+                </div>
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Area</span>
+                    <span className="text-white font-medium">{farm.total_area_acres || '-'} acres</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Species</span>
+                    <span className="text-white font-medium">{farm.primary_species || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Water Source</span>
+                    <span className="text-white font-medium">{farm.water_source || 'N/A'}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setSelectedAuditFarm(farm); setShowAuditModal(true); }}
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl font-medium transition-all text-sm"
+                >
+                  Start Audit
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-2xl">
+            <Shield className="w-20 h-20 text-slate-700 mx-auto mb-6" />
+            <h3 className="text-xl font-bold text-white mb-2">No Farms Available</h3>
+            <p className="text-slate-400">No farms are currently pending audit</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const inputClass = "w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all";
   const labelClass = "block text-sm font-medium text-slate-400 mb-2";
 
@@ -622,6 +762,7 @@ const AquaInspectorDashboard = () => {
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'pending' && renderPending()}
         {activeTab === 'completed' && renderCompleted()}
+        {activeTab === 'farm-audit' && renderFarmAudit()}
       </main>
 
       {/* Inspection Modal */}
@@ -844,6 +985,69 @@ const AquaInspectorDashboard = () => {
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Farm Audit Modal */}
+      {showAuditModal && selectedAuditFarm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-white">Farm Audit</h3>
+                <p className="text-sm text-slate-400">{selectedAuditFarm.farm_name}</p>
+              </div>
+              <button onClick={() => { setShowAuditModal(false); setSelectedAuditFarm(null); }} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitAudit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Overall Score (1-10) *</label>
+                  <input type="number" min="1" max="10" value={auditForm.overall_score} onChange={e => setAuditForm({ ...auditForm, overall_score: e.target.value })} className={inputClass} required />
+                </div>
+                <div>
+                  <label className={labelClass}>Water Management (1-10)</label>
+                  <input type="number" min="1" max="10" value={auditForm.water_management} onChange={e => setAuditForm({ ...auditForm, water_management: e.target.value })} className={inputClass} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Feed Management (1-10)</label>
+                  <input type="number" min="1" max="10" value={auditForm.feed_management} onChange={e => setAuditForm({ ...auditForm, feed_management: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Biosecurity (1-10)</label>
+                  <input type="number" min="1" max="10" value={auditForm.biosecurity} onChange={e => setAuditForm({ ...auditForm, biosecurity: e.target.value })} className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Record Keeping (1-10)</label>
+                <input type="number" min="1" max="10" value={auditForm.record_keeping} onChange={e => setAuditForm({ ...auditForm, record_keeping: e.target.value })} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Remarks</label>
+                <textarea value={auditForm.remarks} onChange={e => setAuditForm({ ...auditForm, remarks: e.target.value })} className={inputClass} rows={3} placeholder="Observations, recommendations..." />
+              </div>
+              <div>
+                <h4 className="text-white font-semibold mb-3">Decision</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <button type="button" onClick={() => setAuditForm({ ...auditForm, decision: 'pass' })} className={`p-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${auditForm.decision === 'pass' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+                    <CheckCircle className="w-6 h-6" />
+                    <span className="font-bold">Pass</span>
+                  </button>
+                  <button type="button" onClick={() => setAuditForm({ ...auditForm, decision: 'fail' })} className={`p-4 rounded-xl border-2 transition-all flex items-center justify-center gap-3 ${auditForm.decision === 'fail' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+                    <AlertCircle className="w-6 h-6" />
+                    <span className="font-bold">Fail</span>
+                  </button>
+                </div>
+              </div>
+              <button type="submit" disabled={submitting} className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${auditForm.decision === 'pass' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white' : 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white'} disabled:opacity-50`}>
+                {submitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Submitting...</> : <><Shield className="w-5 h-5" /> Submit Audit</>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,35 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Leaf, ClipboardCheck, Package, Eye, EyeOff, ArrowLeft, 
-  Loader2, Fish, Shield, AlertCircle 
+  Loader2, Shell, Shield, AlertCircle 
 } from 'lucide-react';
-import { aquaAuthAPI } from '../../services/aquaApi';
+import { mariAuthAPI } from '../../services/mariApi';
 
 const ROLE_CONFIG = {
   farmer: {
     title: 'Farmer Login',
-    subtitle: 'Access your farm and pond management dashboard',
+    subtitle: 'Access your marine farm and culture unit management',
     icon: Leaf,
-    color: 'emerald',
-    dashboardPath: '/aquaculture/farmer/dashboard',
+    color: 'purple',
+    dashboardPath: '/mariculture/farmer/dashboard',
   },
   inspector: {
     title: 'Inspector Login',
     subtitle: 'Access quality inspection and certification portal',
     icon: ClipboardCheck,
-    color: 'blue',
-    dashboardPath: '/aquaculture/inspector/dashboard',
+    color: 'cyan',
+    dashboardPath: '/mariculture/inspector/dashboard',
   },
   packer: {
     title: 'Packer Login',
     subtitle: 'Access crate management and dispatch system',
     icon: Package,
-    color: 'orange',
-    dashboardPath: '/aquaculture/packer/dashboard',
+    color: 'pink',
+    dashboardPath: '/mariculture/packer/dashboard',
   }
 };
 
-const AquaLogin = () => {
+const MariLogin = () => {
   const navigate = useNavigate();
   const { role } = useParams();
   const [username, setUsername] = useState('');
@@ -42,18 +42,13 @@ const AquaLogin = () => {
   const config = ROLE_CONFIG[role] || ROLE_CONFIG.farmer;
   const IconComponent = config.icon;
 
-  // Check if already logged in
   useEffect(() => {
-    const checkAuth = async () => {
-      const isAuth = await aquaAuthAPI.isAuthenticated();
-      if (isAuth) {
-        const user = aquaAuthAPI.getCurrentUser();
-        if (user && user.role === role) {
-          navigate(config.dashboardPath);
-        }
+    if (mariAuthAPI.isAuthenticated()) {
+      const user = mariAuthAPI.getCurrentUser();
+      if (user && user.role === role) {
+        navigate(config.dashboardPath);
       }
-    };
-    checkAuth();
+    }
   }, [role, navigate, config.dashboardPath]);
 
   const handleSubmit = async (e) => {
@@ -62,7 +57,7 @@ const AquaLogin = () => {
     setLoading(true);
 
     try {
-      const result = await aquaAuthAPI.login(username, password, role);
+      const result = await mariAuthAPI.login(username, password, role);
       
       if (result.success) {
         navigate(config.dashboardPath);
@@ -79,37 +74,29 @@ const AquaLogin = () => {
 
   const getColorClasses = () => {
     switch (config.color) {
-      case 'emerald':
+      case 'purple':
         return {
-          bg: 'bg-emerald-500/10',
-          border: 'border-emerald-500/30',
-          text: 'text-emerald-400',
-          button: 'bg-emerald-600 hover:bg-emerald-500',
-          glow: 'shadow-emerald-500/20'
+          bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400',
+          button: 'bg-purple-600 hover:bg-purple-500', glow: 'shadow-purple-500/20',
+          focus: 'focus:border-purple-500 focus:ring-purple-500'
         };
-      case 'blue':
+      case 'cyan':
         return {
-          bg: 'bg-blue-500/10',
-          border: 'border-blue-500/30',
-          text: 'text-blue-400',
-          button: 'bg-blue-600 hover:bg-blue-500',
-          glow: 'shadow-blue-500/20'
+          bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', text: 'text-cyan-400',
+          button: 'bg-cyan-600 hover:bg-cyan-500', glow: 'shadow-cyan-500/20',
+          focus: 'focus:border-cyan-500 focus:ring-cyan-500'
         };
-      case 'orange':
+      case 'pink':
         return {
-          bg: 'bg-orange-500/10',
-          border: 'border-orange-500/30',
-          text: 'text-orange-400',
-          button: 'bg-orange-600 hover:bg-orange-500',
-          glow: 'shadow-orange-500/20'
+          bg: 'bg-pink-500/10', border: 'border-pink-500/30', text: 'text-pink-400',
+          button: 'bg-pink-600 hover:bg-pink-500', glow: 'shadow-pink-500/20',
+          focus: 'focus:border-pink-500 focus:ring-pink-500'
         };
       default:
         return {
-          bg: 'bg-slate-500/10',
-          border: 'border-slate-500/30',
-          text: 'text-slate-400',
-          button: 'bg-slate-600 hover:bg-slate-500',
-          glow: 'shadow-slate-500/20'
+          bg: 'bg-slate-500/10', border: 'border-slate-500/30', text: 'text-slate-400',
+          button: 'bg-slate-600 hover:bg-slate-500', glow: 'shadow-slate-500/20',
+          focus: 'focus:border-slate-500 focus:ring-slate-500'
         };
     }
   };
@@ -121,8 +108,8 @@ const AquaLogin = () => {
       {/* Background Effects */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-600/10 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-teal-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-pink-600/10 rounded-full blur-[120px]"></div>
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       </div>
 
@@ -130,19 +117,19 @@ const AquaLogin = () => {
       <header className="relative z-10 p-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <button 
-            onClick={() => navigate('/aquaculture')}
+            onClick={() => navigate('/mariculture')}
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Aquaculture</span>
+            <span>Back to Mariculture</span>
           </button>
           <div className="flex items-center gap-2">
-            <div className="bg-emerald-600 p-2 rounded-lg">
-              <Fish className="w-5 h-5 text-white" />
+            <div className="bg-purple-600 p-2 rounded-lg">
+              <Shell className="w-5 h-5 text-white" />
             </div>
             <span className="text-lg font-bold text-white">BlueOS</span>
-            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
-              Aquaculture
+            <span className="text-xs text-purple-400 bg-purple-500/10 px-2 py-1 rounded-full border border-purple-500/20">
+              Mariculture
             </span>
           </div>
         </div>
@@ -172,14 +159,12 @@ const AquaLogin = () => {
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Username
-                </label>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Username</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className={`w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none ${colors.focus} focus:ring-1 transition-colors`}
                   placeholder="Enter your username"
                   required
                   disabled={loading}
@@ -187,15 +172,13 @@ const AquaLogin = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Password</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors pr-12"
+                    className={`w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none ${colors.focus} focus:ring-1 transition-colors pr-12`}
                     placeholder="Enter your password"
                     required
                     disabled={loading}
@@ -225,13 +208,19 @@ const AquaLogin = () => {
                 )}
               </button>
             </form>
+
+            {/* Test Accounts Hint */}
+            <div className="mt-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+              <p className="text-xs text-slate-500 text-center">
+                Test: mari{role} / mari{role}123
+              </p>
+            </div>
           </div>
 
-          {/* Footer Links */}
           <div className="text-center mt-6">
             <p className="text-slate-500 text-sm">
               Need help? Contact support at{' '}
-              <a href="tel:+916374484558" className="text-emerald-400 hover:underline">
+              <a href="tel:+916374484558" className="text-purple-400 hover:underline">
                 +91 6374 484 558
               </a>
             </p>
@@ -242,4 +231,4 @@ const AquaLogin = () => {
   );
 };
 
-export default AquaLogin;
+export default MariLogin;

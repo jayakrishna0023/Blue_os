@@ -408,7 +408,20 @@ const WorkerEntry = () => {
                                 </div>
                             </div>
 
-
+                            {/* Temperature */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Temperature (°C)</label>
+                                <div className="relative group">
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={formData.temperature}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, temperature: e.target.value }))}
+                                        className="input-field pl-4 text-lg font-semibold text-slate-900 bg-white"
+                                        placeholder="0.0"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Quality Grade */}

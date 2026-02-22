@@ -253,7 +253,13 @@ export const fisherAPI = {
 export const mainAPI = {
   // Trip Management
   checkTripCode: async (code) => {
-    return { success: true, valid: true }; 
+    try {
+      const response = await api.get(`/trips/check-code/${encodeURIComponent(code)}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error checking trip code:', error);
+      return { success: false, valid: false, error: 'Failed to validate trip code' };
+    }
   },
   // QR Generation (Admin)
   generateQRCodes: async (config) => {
@@ -291,6 +297,10 @@ export const mainAPI = {
   },
   approveTrip: async (tripId) => {
     const response = await api.post('/trips/approve', { tripId });
+    return response.data;
+  },
+  rejectTrip: async (tripId, reason) => {
+    const response = await api.post('/trips/reject', { tripId, reason });
     return response.data;
   },
   getCaptainTrips: async (vesselName, userId) => {

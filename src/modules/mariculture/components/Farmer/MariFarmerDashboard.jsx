@@ -1,85 +1,105 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   LogOut, Home, Shell, Waves, MapPin, Calendar, Plus, Edit, Trash2, 
   Eye, Search, Filter, ChevronRight, Anchor, Leaf, Package, BarChart3,
-  AlertCircle, CheckCircle, Clock, Ship
+  AlertCircle, CheckCircle, Clock, Ship, X
 } from 'lucide-react';
 import { useLanguage } from '../../../shared/context/LanguageContext';
 import LanguageToggle from '../../../shared/components/Shared/LanguageToggle';
 import Toast from '../../../shared/components/Shared/Toast';
+import { mariAuthAPI, mariFarmerAPI } from '../../services/mariApi';
 
 const MariFarmerDashboard = () => {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddFarmModal, setShowAddFarmModal] = useState(false);
   const [showAddUnitModal, setShowAddUnitModal] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
 
-  // Demo farmer data
-  const [farmerData] = useState({
-    id: 'MF-001',
-    name: 'Selvam Murugan',
-    phone: '+91 94876 54321',
-    email: 'selvam.m@email.com',
-    address: 'Ramanathapuram District, Tamil Nadu',
-    registeredDate: '2024-02-10',
-    totalFarms: 2,
-    totalUnits: 12,
-    activeHarvests: 2
-  });
+  // Real data state
+  const [farmerData, setFarmerData] = useState({ id: '', name: '', totalFarms: 0, totalUnits: 0, activeHarvests: 0 });
+  const [farms, setFarms] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [harvests, setHarvests] = useState([]);
 
-  // Demo farms data
-  const [farms] = useState([
-    {
-      id: 'MFARM-001',
-      name: 'Coastal Seaweed Farm',
-      address: 'Mandapam Coast, Ramanathapuram',
-      location: { lat: 9.2800, lng: 79.1200 },
-      primarySpecies: 'Kappaphycus alvarezii',
-      totalCapacity: '4500 kg',
-      unitsCount: 8,
-      unitTypes: ['Raft', 'Longline'],
-      status: 'active',
-      lastHarvest: '2024-11-20'
-    },
-    {
-      id: 'MFARM-002',
-      name: 'Blue Lagoon Farm',
-      address: 'Pamban, Ramanathapuram',
-      location: { lat: 9.2767, lng: 79.2117 },
-      primarySpecies: 'Asian Seabass',
-      totalCapacity: '2000 kg',
-      unitsCount: 4,
-      unitTypes: ['Sea Cage'],
-      status: 'active',
-      lastHarvest: '2024-10-15'
+  // Form states
+  const [farmForm, setFarmForm] = useState({ farm_name: '', address: '', district: '', water_body_type: 'Sea', total_area_hectares: '', primary_species: 'Seaweed' });
+  const [unitForm, setUnitForm] = useState({ farm_id: '', unit_name: '', unit_type: 'raft', species: 'Seaweed', capacity: '' });
+  const [harvestForm, setHarvestForm] = useState({ farm_id: '', unit_id: '', species: '', total_quantity_kg: '', method: 'manual' });
+
+  // Auth check + initial load
+  useEffect(() => {
+    if (!mariAuthAPI.isAuthenticated()) {
+      navigate('/mariculture/login/farmer');
+      return;
     }
-  ]);
+    const user = mariAuthAPI.getCurrentUser();
+    if (user) {
+      setFarmerData(prev => ({ ...prev, id: user.id, name: user.name || user.username }));
+    }
+    loadAllData();
+  }, []);
 
-  // Demo farming units data
-  const [units] = useState([
-    { id: 'U001', farmId: 'MFARM-001', name: 'Raft A1', type: 'Raft', species: 'Kappaphycus alvarezii', capacity: '500 kg', seedSource: 'CMFRI', seedingDate: '2024-09-15', status: 'growing', daysToHarvest: 15 },
-    { id: 'U002', farmId: 'MFARM-001', name: 'Raft A2', type: 'Raft', species: 'Kappaphycus alvarezii', capacity: '500 kg', seedSource: 'CMFRI', seedingDate: '2024-09-20', status: 'growing', daysToHarvest: 20 },
-    { id: 'U003', farmId: 'MFARM-001', name: 'Raft B1', type: 'Raft', species: 'Kappaphycus alvarezii', capacity: '500 kg', seedSource: 'Local', seedingDate: '2024-10-01', status: 'growing', daysToHarvest: 30 },
-    { id: 'U004', farmId: 'MFARM-001', name: 'Longline L1', type: 'Longline', species: 'Kappaphycus alvarezii', capacity: '750 kg', seedSource: 'CMFRI', seedingDate: '2024-08-20', status: 'ready', daysToHarvest: 0 },
-    { id: 'U005', farmId: 'MFARM-001', name: 'Longline L2', type: 'Longline', species: 'Kappaphycus alvarezii', capacity: '750 kg', seedSource: 'CMFRI', seedingDate: '2024-09-05', status: 'ready', daysToHarvest: 5 },
-    { id: 'U006', farmId: 'MFARM-001', name: 'Raft C1', type: 'Raft', species: 'Gracilaria', capacity: '400 kg', seedSource: 'Local', seedingDate: null, status: 'empty', daysToHarvest: null },
-    { id: 'U007', farmId: 'MFARM-001', name: 'Raft C2', type: 'Raft', species: 'Gracilaria', capacity: '400 kg', seedSource: null, seedingDate: null, status: 'maintenance', daysToHarvest: null },
-    { id: 'U008', farmId: 'MFARM-001', name: 'Longline L3', type: 'Longline', species: 'Kappaphycus alvarezii', capacity: '750 kg', seedSource: null, seedingDate: null, status: 'empty', daysToHarvest: null },
-    { id: 'U009', farmId: 'MFARM-002', name: 'Cage Alpha', type: 'Sea Cage', species: 'Asian Seabass', capacity: '500 kg', seedSource: 'MPEDA Hatchery', seedingDate: '2024-07-01', status: 'ready', daysToHarvest: 0 },
-    { id: 'U010', farmId: 'MFARM-002', name: 'Cage Beta', type: 'Sea Cage', species: 'Asian Seabass', capacity: '500 kg', seedSource: 'MPEDA Hatchery', seedingDate: '2024-08-15', status: 'growing', daysToHarvest: 45 },
-    { id: 'U011', farmId: 'MFARM-002', name: 'Cage Gamma', type: 'Sea Cage', species: 'Cobia', capacity: '500 kg', seedSource: 'RGCA', seedingDate: '2024-09-01', status: 'growing', daysToHarvest: 60 },
-    { id: 'U012', farmId: 'MFARM-002', name: 'Cage Delta', type: 'Sea Cage', species: 'Asian Seabass', capacity: '500 kg', seedSource: null, seedingDate: null, status: 'empty', daysToHarvest: null }
-  ]);
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [farmsRes, unitsRes, harvestsRes] = await Promise.all([
+        mariFarmerAPI.getFarms().catch(() => ({ data: { data: [] } })),
+        mariFarmerAPI.getUnits().catch(() => ({ data: { data: [] } })),
+        mariFarmerAPI.getHarvests().catch(() => ({ data: { data: [] } }))
+      ]);
+      const farmsData = farmsRes.data?.data || [];
+      const unitsData = unitsRes.data?.data || [];
+      const harvestsData = harvestsRes.data?.data || [];
+      setFarms(farmsData);
+      setUnits(unitsData);
+      setHarvests(harvestsData);
+      setFarmerData(prev => ({ ...prev, totalFarms: farmsData.length, totalUnits: unitsData.length, activeHarvests: harvestsData.filter(h => h.status === 'pending_inspection').length }));
+    } catch (err) {
+      console.error('Load data error:', err);
+    }
+    setLoading(false);
+  };
 
-  // Demo harvests data
-  const [harvests] = useState([
-    { id: 'MH001', unitId: 'U004', unitName: 'Longline L1', farmName: 'Coastal Seaweed Farm', date: '2024-12-10', quantity: '720 kg', method: 'Manual', species: 'Kappaphycus alvarezii', status: 'pending_inspection', grade: null },
-    { id: 'MH002', unitId: 'U009', unitName: 'Cage Alpha', farmName: 'Blue Lagoon Farm', date: '2024-12-08', quantity: '450 kg', method: 'Net Harvest', species: 'Asian Seabass', status: 'inspected', grade: 'Premium' },
-    { id: 'MH003', unitId: 'U005', unitName: 'Longline L2', farmName: 'Coastal Seaweed Farm', date: '2024-12-05', quantity: '680 kg', method: 'Manual', species: 'Kappaphycus alvarezii', status: 'packed', grade: 'Grade A' }
-  ]);
+  const handleCreateFarm = async () => {
+    try {
+      await mariFarmerAPI.createFarm(farmForm);
+      setToast({ message: 'Farm created successfully!', type: 'success' });
+      setShowAddFarmModal(false);
+      setFarmForm({ farm_name: '', address: '', district: '', water_body_type: 'Sea', total_area_hectares: '', primary_species: 'Seaweed' });
+      loadAllData();
+    } catch (err) {
+      setToast({ message: 'Failed to create farm: ' + (err.response?.data?.message || err.message), type: 'error' });
+    }
+  };
+
+  const handleCreateUnit = async () => {
+    try {
+      await mariFarmerAPI.createUnit(unitForm);
+      setToast({ message: 'Culture unit created successfully!', type: 'success' });
+      setShowAddUnitModal(false);
+      setUnitForm({ farm_id: '', unit_name: '', unit_type: 'raft', species: 'Seaweed', capacity: '' });
+      loadAllData();
+    } catch (err) {
+      setToast({ message: 'Failed to create unit: ' + (err.response?.data?.message || err.message), type: 'error' });
+    }
+  };
+
+  const handleCreateHarvest = async () => {
+    try {
+      await mariFarmerAPI.createHarvest(harvestForm);
+      setToast({ message: 'Harvest recorded successfully! QR code generated.', type: 'success' });
+      setShowHarvestModal(false);
+      setHarvestForm({ farm_id: '', unit_id: '', species: '', total_quantity_kg: '', method: 'manual' });
+      loadAllData();
+    } catch (err) {
+      setToast({ message: 'Failed to record harvest: ' + (err.response?.data?.message || err.message), type: 'error' });
+    }
+  };
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home },
@@ -112,6 +132,7 @@ const MariFarmerDashboard = () => {
   };
 
   const handleLogout = () => {
+    mariAuthAPI.logout();
     navigate('/mariculture');
   };
 
@@ -190,16 +211,16 @@ const MariFarmerDashboard = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Ready for Harvest</h3>
         <div className="space-y-3">
           {units.filter(u => u.status === 'ready').map(unit => {
-            const farm = farms.find(f => f.id === unit.farmId);
+            const farm = farms.find(f => f.id === unit.farm_id);
             return (
               <div key={unit.id} className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    {getUnitTypeIcon(unit.type)}
+                    {getUnitTypeIcon(unit.unit_type || unit.type)}
                   </div>
                   <div>
-                    <p className="text-white font-medium">{unit.name}</p>
-                    <p className="text-sm text-slate-400">{farm?.name} • {unit.species}</p>
+                    <p className="text-white font-medium">{unit.unit_name || unit.name}</p>
+                    <p className="text-sm text-slate-400">{farm?.farm_name || farm?.name} • {unit.species}</p>
                   </div>
                 </div>
                 <button 
@@ -225,12 +246,12 @@ const MariFarmerDashboard = () => {
                   <Package className="w-4 h-4 text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-white font-medium">{harvest.unitName}</p>
-                  <p className="text-sm text-slate-400">{harvest.farmName} • {harvest.date}</p>
+                  <p className="text-white font-medium">{harvest.harvest_code || harvest.species}</p>
+                  <p className="text-sm text-slate-400">{harvest.species} • {harvest.harvest_date || harvest.date}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-white font-medium">{harvest.quantity}</p>
+                <p className="text-white font-medium">{harvest.total_quantity_kg ? harvest.total_quantity_kg + ' kg' : harvest.quantity}</p>
                 <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(harvest.status)}`}>
                   {harvest.status.replace('_', ' ')}
                 </span>
@@ -246,7 +267,7 @@ const MariFarmerDashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-white">My Farms</h2>
-        <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors">
+        <button onClick={() => setShowAddFarmModal(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors">
           <Plus className="w-4 h-4" />
           Add Farm
         </button>
@@ -261,8 +282,8 @@ const MariFarmerDashboard = () => {
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{farm.name}</h3>
-                  <p className="text-sm text-slate-400">{farm.id}</p>
+                  <h3 className="text-lg font-semibold text-white">{farm.farm_name || farm.name}</h3>
+                  <p className="text-sm text-slate-400">{farm.farm_code || farm.id}</p>
                 </div>
                 <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs">
                   {farm.status}
@@ -272,24 +293,24 @@ const MariFarmerDashboard = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Location</span>
-                  <span className="text-white">{farm.address}</span>
+                  <span className="text-white">{farm.address || farm.district || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Primary Species</span>
-                  <span className="text-white">{farm.primarySpecies}</span>
+                  <span className="text-white">{farm.primary_species || farm.primarySpecies || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Total Capacity</span>
-                  <span className="text-white">{farm.totalCapacity}</span>
+                  <span className="text-slate-400">Area</span>
+                  <span className="text-white">{farm.total_area_hectares ? farm.total_area_hectares + ' ha' : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Units</span>
-                  <span className="text-white">{farm.unitsCount} ({farm.unitTypes.join(', ')})</span>
+                  <span className="text-slate-400">Water Body</span>
+                  <span className="text-white">{farm.water_body_type || 'Sea'}</span>
                 </div>
               </div>
 
               <div className="flex gap-2 mt-4 pt-4 border-t border-slate-700">
-                <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors">
+                <button onClick={() => setActiveTab('units')} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors">
                   <Eye className="w-4 h-4" />
                   View Units
                 </button>
@@ -336,20 +357,22 @@ const MariFarmerDashboard = () => {
       {/* Units Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {units.map(unit => {
-          const farm = farms.find(f => f.id === unit.farmId);
+          const farm = farms.find(f => f.id === unit.farm_id);
+          const uType = unit.unit_type || unit.type || '';
+          const uName = unit.unit_name || unit.name || '';
           return (
             <div key={unit.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${
-                    unit.type === 'Raft' ? 'bg-blue-500/20' : 
-                    unit.type === 'Longline' ? 'bg-purple-500/20' : 'bg-emerald-500/20'
+                    uType === 'raft' || uType === 'Raft' ? 'bg-blue-500/20' : 
+                    uType === 'longline' || uType === 'Longline' ? 'bg-purple-500/20' : 'bg-emerald-500/20'
                   }`}>
-                    {getUnitTypeIcon(unit.type)}
+                    {getUnitTypeIcon(uType)}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{unit.name}</h3>
-                    <p className="text-sm text-slate-400">{unit.type}</p>
+                    <h3 className="text-lg font-semibold text-white">{uName}</h3>
+                    <p className="text-sm text-slate-400">{uType}</p>
                   </div>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(unit.status)}`}>
@@ -357,7 +380,7 @@ const MariFarmerDashboard = () => {
                 </span>
               </div>
 
-              <p className="text-xs text-slate-500 mb-3">{farm?.name}</p>
+              <p className="text-xs text-slate-500 mb-3">{farm?.farm_name || farm?.name}</p>
 
               <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between">
@@ -366,7 +389,7 @@ const MariFarmerDashboard = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Capacity</span>
-                  <span className="text-white">{unit.capacity}</span>
+                  <span className="text-white">{unit.capacity || 'N/A'}</span>
                 </div>
                 {unit.seedSource && (
                   <div className="flex justify-between">
@@ -481,10 +504,10 @@ const MariFarmerDashboard = () => {
           <tbody>
             {harvests.map(harvest => (
               <tr key={harvest.id} className="border-t border-slate-800">
-                <td className="px-4 py-3 text-white">{harvest.unitName}</td>
-                <td className="px-4 py-3 text-slate-400">{harvest.farmName}</td>
-                <td className="px-4 py-3 text-slate-400">{harvest.date}</td>
-                <td className="px-4 py-3 text-white">{harvest.quantity}</td>
+                <td className="px-4 py-3 text-white">{harvest.harvest_code || harvest.species}</td>
+                <td className="px-4 py-3 text-slate-400">{harvest.species}</td>
+                <td className="px-4 py-3 text-slate-400">{harvest.harvest_date || harvest.date}</td>
+                <td className="px-4 py-3 text-white">{harvest.total_quantity_kg ? harvest.total_quantity_kg + ' kg' : harvest.quantity}</td>
                 <td className="px-4 py-3 text-slate-400">{harvest.species}</td>
                 <td className="px-4 py-3 text-white">{harvest.grade || '-'}</td>
                 <td className="px-4 py-3">
@@ -626,6 +649,153 @@ const MariFarmerDashboard = () => {
       </main>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Add Farm Modal */}
+      {showAddFarmModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Add New Farm</h2>
+              <button onClick={() => setShowAddFarmModal(false)} className="p-2 hover:bg-slate-800 rounded-lg"><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Farm Name*</label>
+                <input type="text" value={farmForm.farm_name} onChange={e => setFarmForm({...farmForm, farm_name: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="Coastal Seaweed Farm" />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Address</label>
+                <input type="text" value={farmForm.address} onChange={e => setFarmForm({...farmForm, address: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="Mandapam Coast" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">District</label>
+                  <input type="text" value={farmForm.district} onChange={e => setFarmForm({...farmForm, district: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="Ramanathapuram" />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Area (hectares)</label>
+                  <input type="number" value={farmForm.total_area_hectares} onChange={e => setFarmForm({...farmForm, total_area_hectares: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="5" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Water Body Type</label>
+                  <select value={farmForm.water_body_type} onChange={e => setFarmForm({...farmForm, water_body_type: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                    <option value="Sea">Sea</option><option value="Lagoon">Lagoon</option><option value="Estuary">Estuary</option><option value="Creek">Creek</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Primary Species</label>
+                  <select value={farmForm.primary_species} onChange={e => setFarmForm({...farmForm, primary_species: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                    <option value="Seaweed">Seaweed</option><option value="Asian Seabass">Asian Seabass</option><option value="Cobia">Cobia</option><option value="Mussel">Mussel</option><option value="Oyster">Oyster</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button onClick={() => setShowAddFarmModal(false)} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl">Cancel</button>
+                <button onClick={handleCreateFarm} disabled={!farmForm.farm_name} className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium">Create Farm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Unit Modal */}
+      {showAddUnitModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Add Culture Unit</h2>
+              <button onClick={() => setShowAddUnitModal(false)} className="p-2 hover:bg-slate-800 rounded-lg"><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Farm*</label>
+                <select value={unitForm.farm_id} onChange={e => setUnitForm({...unitForm, farm_id: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                  <option value="">Select Farm</option>
+                  {farms.map(f => <option key={f.id} value={f.id}>{f.farm_name || f.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Unit Name*</label>
+                <input type="text" value={unitForm.unit_name} onChange={e => setUnitForm({...unitForm, unit_name: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="Raft A1" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Unit Type</label>
+                  <select value={unitForm.unit_type} onChange={e => setUnitForm({...unitForm, unit_type: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                    <option value="raft">Raft</option><option value="longline">Longline</option><option value="sea_cage">Sea Cage</option><option value="pen">Pen</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Capacity</label>
+                  <input type="number" value={unitForm.capacity} onChange={e => setUnitForm({...unitForm, capacity: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Species</label>
+                <select value={unitForm.species} onChange={e => setUnitForm({...unitForm, species: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                  <option value="Seaweed">Seaweed</option><option value="Asian Seabass">Asian Seabass</option><option value="Cobia">Cobia</option><option value="Mussel">Mussel</option>
+                </select>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button onClick={() => setShowAddUnitModal(false)} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl">Cancel</button>
+                <button onClick={handleCreateUnit} disabled={!unitForm.farm_id || !unitForm.unit_name} className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium">Create Unit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Harvest Modal */}
+      {showHarvestModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Record Harvest</h2>
+              <button onClick={() => setShowHarvestModal(false)} className="p-2 hover:bg-slate-800 rounded-lg"><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Farm*</label>
+                <select value={harvestForm.farm_id} onChange={e => setHarvestForm({...harvestForm, farm_id: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                  <option value="">Select Farm</option>
+                  {farms.map(f => <option key={f.id} value={f.id}>{f.farm_name || f.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Unit</label>
+                <select value={harvestForm.unit_id} onChange={e => setHarvestForm({...harvestForm, unit_id: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                  <option value="">Select Unit (optional)</option>
+                  {units.filter(u => !harvestForm.farm_id || u.farm_id === harvestForm.farm_id).map(u => <option key={u.id} value={u.id}>{u.unit_name || u.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Species*</label>
+                  <select value={harvestForm.species} onChange={e => setHarvestForm({...harvestForm, species: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                    <option value="">Select Species</option><option value="Seaweed">Seaweed</option><option value="Asian Seabass">Asian Seabass</option><option value="Cobia">Cobia</option><option value="Mussel">Mussel</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Quantity (kg)*</label>
+                  <input type="number" value={harvestForm.total_quantity_kg} onChange={e => setHarvestForm({...harvestForm, total_quantity_kg: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none" placeholder="500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Harvest Method</label>
+                <select value={harvestForm.method} onChange={e => setHarvestForm({...harvestForm, method: e.target.value})} className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-purple-500 focus:outline-none">
+                  <option value="manual">Manual</option><option value="net">Net Harvest</option><option value="mechanical">Mechanical</option>
+                </select>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button onClick={() => setShowHarvestModal(false)} className="flex-1 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl">Cancel</button>
+                <button onClick={handleCreateHarvest} disabled={!harvestForm.farm_id || !harvestForm.species || !harvestForm.total_quantity_kg} className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium">Record Harvest</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

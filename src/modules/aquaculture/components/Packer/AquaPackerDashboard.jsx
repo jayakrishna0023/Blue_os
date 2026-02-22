@@ -161,10 +161,13 @@ const AquaPackerDashboard = () => {
   };
 
   const handleDispatch = async (crate) => {
+    const destination = window.prompt('Enter dispatch destination:', 'Distribution Center');
+    if (!destination) return;
+    const vehicleNumber = window.prompt('Enter vehicle number (optional):', '') || 'N/A';
     try {
       const result = await aquaPackerAPI.dispatchCrate(crate.id, {
-        dispatched_to: 'Distribution Center',
-        vehicle_number: 'TBD'
+        dispatched_to: destination,
+        vehicle_number: vehicleNumber
       });
       
       if (result.success) {
@@ -205,16 +208,25 @@ const AquaPackerDashboard = () => {
     );
   }
 
-  const StatCard = ({ icon: Icon, label, value, subValue, color, onClick }) => (
+  const colorMap = {
+    emerald: { bg10: 'bg-emerald-500/10', hoverBg20: 'group-hover:bg-emerald-500/20', from20: 'from-emerald-500/20', to10: 'to-emerald-600/10', border20: 'border-emerald-500/20', text: 'text-emerald-400' },
+    blue: { bg10: 'bg-blue-500/10', hoverBg20: 'group-hover:bg-blue-500/20', from20: 'from-blue-500/20', to10: 'to-blue-600/10', border20: 'border-blue-500/20', text: 'text-blue-400' },
+    amber: { bg10: 'bg-amber-500/10', hoverBg20: 'group-hover:bg-amber-500/20', from20: 'from-amber-500/20', to10: 'to-amber-600/10', border20: 'border-amber-500/20', text: 'text-amber-400' },
+    purple: { bg10: 'bg-purple-500/10', hoverBg20: 'group-hover:bg-purple-500/20', from20: 'from-purple-500/20', to10: 'to-purple-600/10', border20: 'border-purple-500/20', text: 'text-purple-400' },
+  };
+
+  const StatCard = ({ icon: Icon, label, value, subValue, color, onClick }) => {
+    const c = colorMap[color] || colorMap.emerald;
+    return (
     <div 
       onClick={onClick}
       className={`group relative bg-gradient-to-br from-slate-900/80 to-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl ${onClick ? 'cursor-pointer' : ''}`}
     >
-      <div className={`absolute -top-20 -right-20 w-40 h-40 bg-${color}-500/10 rounded-full blur-3xl group-hover:bg-${color}-500/20 transition-all duration-700`} />
+      <div className={`absolute -top-20 -right-20 w-40 h-40 ${c.bg10} rounded-full blur-3xl ${c.hoverBg20} transition-all duration-700`} />
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
-          <div className={`p-3 bg-gradient-to-br from-${color}-500/20 to-${color}-600/10 rounded-xl border border-${color}-500/20 group-hover:scale-110 transition-transform duration-300`}>
-            <Icon className={`w-6 h-6 text-${color}-400`} />
+          <div className={`p-3 bg-gradient-to-br ${c.from20} ${c.to10} rounded-xl border ${c.border20} group-hover:scale-110 transition-transform duration-300`}>
+            <Icon className={`w-6 h-6 ${c.text}`} />
           </div>
         </div>
         <p className="text-3xl font-bold text-white mb-1 tracking-tight">{value}</p>
@@ -222,7 +234,8 @@ const AquaPackerDashboard = () => {
         {subValue && <p className="text-xs text-slate-500 mt-1">{subValue}</p>}
       </div>
     </div>
-  );
+    );
+  };
 
   const renderOverview = () => (
     <div className="space-y-8 animate-fadeIn">
@@ -270,9 +283,9 @@ const AquaPackerDashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard icon={CheckCircle} label="Ready to Pack" value={approvedHarvests.length} color="emerald" onClick={() => setActiveTab('ready')} />
-        <StatCard icon={Package} label="Packed Today" value={stats.today || packedCrates.filter(c => c.status === 'active').length} color="blue" onClick={() => setActiveTab('crates')} />
+        <StatCard icon={Package} label="Total Packed" value={stats.packedCrates || packedCrates.length} color="blue" onClick={() => setActiveTab('crates')} />
         <StatCard icon={Box} label="Total Crates" value={packedCrates.length} color="amber" />
-        <StatCard icon={Truck} label="Dispatched" value={stats.dispatched || packedCrates.filter(c => c.status === 'dispatched').length} color="purple" />
+        <StatCard icon={Truck} label="Dispatched" value={packedCrates.filter(c => c.status === 'dispatched').length} color="purple" />
       </div>
 
       {/* Ready for Packing */}
@@ -508,10 +521,13 @@ const AquaPackerDashboard = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
-                        <button className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => showToast(`Crate QR: ${crate.crate_code || `CRATE-${crate.id}`}`, 'info')}
+                          className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                        >
                           <QrCode className="w-4 h-4 text-slate-400" />
                         </button>
-                        {crate.status === 'active' && (
+                        {(crate.status === 'packed' || crate.status === 'active') && (
                           <button 
                             onClick={() => handleDispatch(crate)}
                             className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-sm rounded-lg flex items-center gap-1 transition-colors"

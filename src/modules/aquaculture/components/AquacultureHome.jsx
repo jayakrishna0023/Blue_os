@@ -127,16 +127,24 @@ const Footer = () => (
         <span className="text-white font-bold tracking-wider">BlueOS Aquaculture</span>
     </div>
     <p className="text-slate-600 text-sm">
-      © 2025 BlueOS Integrated Fisheries Management System. All rights reserved.
+      © {new Date().getFullYear()} BlueOS Integrated Fisheries Management System. All rights reserved.
     </p>
   </footer>
 );
 
-const RoleCard = ({ role, onSelect }) => (
+const roleColorMap = {
+  emerald: { hoverBorder: 'hover:border-emerald-500/50', hoverShadow: 'hover:shadow-emerald-900/20' },
+  blue: { hoverBorder: 'hover:border-blue-500/50', hoverShadow: 'hover:shadow-blue-900/20' },
+  orange: { hoverBorder: 'hover:border-orange-500/50', hoverShadow: 'hover:shadow-orange-900/20' },
+};
+
+const RoleCard = ({ role, onSelect }) => {
+  const cm = roleColorMap[role.color] || roleColorMap.emerald;
+  return (
   <div 
     className={`
       relative group rounded-3xl p-8 transition-all duration-500 border border-slate-800 bg-slate-900/50 hover:bg-slate-800
-      hover:border-${role.color}-500/50 hover:shadow-2xl hover:shadow-${role.color}-900/20
+      ${cm.hoverBorder} hover:shadow-2xl ${cm.hoverShadow}
     `}
   >
     <div className={`mb-6 p-4 rounded-2xl inline-block bg-slate-950 border border-slate-800 group-hover:scale-110 transition-transform duration-500`}>
@@ -162,7 +170,8 @@ const RoleCard = ({ role, onSelect }) => (
       <ArrowRight className="w-5 h-5" />
     </button>
   </div>
-);
+  );
+};
 
 const HowItWorks = () => (
   <section id="how-it-works" className="py-32 px-6 bg-slate-950 relative z-10">
@@ -310,13 +319,13 @@ const AquacultureHome = () => {
             ))}
           </div>
 
-          {/* Demo Credentials Info */}
+          {/* Getting Started Info */}
           <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-emerald-600/20 rounded-lg">
                 <Shield className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="text-xl font-bold text-white">Demo Login Credentials</h3>
+              <h3 className="text-xl font-bold text-white">Getting Started</h3>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -325,16 +334,7 @@ const AquacultureHome = () => {
                   <Leaf className="w-5 h-5 text-emerald-400" />
                   <h4 className="font-bold text-white">Farmer</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-emerald-400">aquafarmer</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-emerald-400">password123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Manage farms, ponds, water quality, feeding schedules, and harvest records.</p>
               </div>
 
               <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
@@ -342,16 +342,7 @@ const AquacultureHome = () => {
                   <ClipboardCheck className="w-5 h-5 text-blue-400" />
                   <h4 className="font-bold text-white">Inspector</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-blue-400">aquainspector</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-blue-400">password123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Verify farm conditions, certify quality standards, and submit audit reports.</p>
               </div>
 
               <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
@@ -359,21 +350,12 @@ const AquacultureHome = () => {
                   <Package className="w-5 h-5 text-orange-400" />
                   <h4 className="font-bold text-white">Packer</h4>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Username:</span>
-                    <code className="text-orange-400">aquapacker</code>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span className="font-medium">Password:</span>
-                    <code className="text-orange-400">password123</code>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-400">Pack approved harvests into traced crates and manage dispatch logistics.</p>
               </div>
             </div>
 
             <p className="text-center text-slate-500 text-sm mt-6">
-              ⚠️ These are demo credentials for testing only. Use them to explore the module.
+              Contact your administrator for login credentials.
             </p>
           </div>
         </div>

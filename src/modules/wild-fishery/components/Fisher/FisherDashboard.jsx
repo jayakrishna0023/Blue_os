@@ -114,7 +114,7 @@ const FisherDashboard = () => {
                     <h2 className="text-base sm:text-xl font-bold text-white mt-1">{t('fisherIdCard')}</h2>
                   </div>
                   <div className="bg-white/10 backdrop-blur-sm px-2 sm:px-3 py-1 rounded-full">
-                    <span className="text-[10px] sm:text-xs font-bold text-white">ÔùÅ {t('verified')}</span>
+                    <span className="text-[10px] sm:text-xs font-bold text-white">ï¿½ï¿½ï¿½ {t('verified')}</span>
                   </div>
                 </div>
               </div>
@@ -159,11 +159,11 @@ const FisherDashboard = () => {
                       <p className="text-[10px] sm:text-xs text-blue-500">{t('trips')}</p>
                     </div>
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
-                      <p className="text-lg sm:text-2xl font-bold text-green-600">Ôé¦{trips.length * 1500}</p>
+                      <p className="text-lg sm:text-2xl font-bold text-green-600">â€”</p>
                       <p className="text-[10px] sm:text-xs text-green-500">{t('earnings')}</p>
                     </div>
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
-                      <p className="text-lg sm:text-2xl font-bold text-amber-600">5.0</p>
+                      <p className="text-lg sm:text-2xl font-bold text-amber-600">â€”</p>
                       <p className="text-[10px] sm:text-xs text-amber-500">{t('rating')}</p>
                     </div>
                   </div>

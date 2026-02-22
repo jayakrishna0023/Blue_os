@@ -42,6 +42,7 @@ import AquaPackerDashboard from './modules/aquaculture/components/Packer/AquaPac
 
 // Mariculture Module - Components
 import MaricultureHome from './modules/mariculture/components/MaricultureHome';
+import MariLogin from './modules/mariculture/components/Auth/MariLogin';
 import MariFarmerDashboard from './modules/mariculture/components/Farmer/MariFarmerDashboard';
 import MariInspectorDashboard from './modules/mariculture/components/Inspector/MariInspectorDashboard';
 import MariPackerDashboard from './modules/mariculture/components/Packer/MariPackerDashboard';
@@ -255,6 +256,9 @@ function App() {
               
               {/* Mariculture Home */}
               <Route path="/mariculture" element={<MaricultureHome />} />
+              
+              {/* Mariculture Login Routes */}
+              <Route path="/mariculture/login/:role" element={<MariLogin />} />
               
               {/* Mariculture Farmer Dashboard */}
               <Route path="/mariculture/farmer/dashboard" element={<MariFarmerDashboard />} />

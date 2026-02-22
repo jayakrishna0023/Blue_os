@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { LayoutDashboard, ClipboardCheck, LogOut } from 'lucide-react';
 import { authAPI } from '../../../shared/services/api';
 import InspectorHome from './InspectorHome';
@@ -8,9 +8,11 @@ import TripDetails from './TripDetails';
 
 const InspectorDashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     authAPI.logout();
+    navigate('/login');
   };
 
   const isActive = (path) => {

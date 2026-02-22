@@ -46,7 +46,7 @@ const WorkerDashboard = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-slate-800 truncate text-sm">{user?.full_name || user?.username}</p>
-              <p className="text-xs text-slate-500">Quality Inspector</p>
+              <p className="text-xs text-slate-500 capitalize">{user?.role || 'Worker'}</p>
             </div>
           </div>
         </div>
